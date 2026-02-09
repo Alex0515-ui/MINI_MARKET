@@ -1,5 +1,5 @@
 import { IsString, IsInt, MinLength, IsNotEmpty, isNotEmpty, IsEnum, isInt } from "class-validator";
-import { User, UserRole } from "./users.entity";
+import { UserRole } from "./users.entity";
 
 export class CreateUserDTO {
     @IsString({message: "Имя должно быть строкой!"})

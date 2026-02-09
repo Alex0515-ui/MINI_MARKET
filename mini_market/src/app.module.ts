@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
+import { ProductModule } from './products/products.module';
 
 @Module({
   imports: [TypeOrmModule.forRoot({
@@ -14,7 +15,7 @@ import { UsersModule } from './users/users.module';
     database: "mini_market",
     autoLoadEntities: true,
     synchronize: true,
-  }), UsersModule],
+  }), UsersModule, ProductModule],
   controllers: [AppController],
   providers: [AppService],
 })
