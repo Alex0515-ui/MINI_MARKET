@@ -1,0 +1,4 @@
+@nestjs/cli
+postgresql
+class-validator class-transformer
+bcrypt (types)
