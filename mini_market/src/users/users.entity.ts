@@ -13,7 +13,7 @@ export class User { // Модель таблицы сущности пользо
     @Column()
     name: string;
     
-    @Column({select: false}) // <-- Пароль нельзя получить 
+    @Column({ select: false }) // Пароль будет скрыт! 
     password: string;
 
     @Column({type:'enum', enum: UserRole, default:UserRole.USER})
