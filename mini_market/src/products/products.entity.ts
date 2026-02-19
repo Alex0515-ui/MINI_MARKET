@@ -16,4 +16,7 @@ export class Product { // Модель сущности продукта в БД
 
     @Column('decimal')
     price: number;
+
+    @Column({select: false})
+    count: number;
 }

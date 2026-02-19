@@ -6,14 +6,21 @@ import { UsersModule } from './users/users.module';
 import { ProductModule } from './products/products.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
-import { RoleGuard } from './auth/guards/guards.guard';
+import { BullModule } from '@nestjs/bull';
+import { OrderModule } from './orders/order.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({isGlobal: true, envFilePath: '.env'}),
 
-    TypeOrmModule.forRootAsync({
+    BullModule.forRoot({ // Redis
+      redis: {
+        host: 'localhost',
+        port: 6379
+      }
+    }),
+
+    TypeOrmModule.forRootAsync({ // TypeORM PostgresSQL
     imports: [ConfigModule],
     inject: [ConfigService],
     useFactory: (config: ConfigService): TypeOrmModuleOptions => ({
@@ -27,7 +34,7 @@ import { RoleGuard } from './auth/guards/guards.guard';
       synchronize: true,
     })
     
-  }), UsersModule, ProductModule, AuthModule],
+  }), UsersModule, ProductModule, AuthModule, OrderModule],
   controllers: [AppController],
   providers: [AppService],
 })

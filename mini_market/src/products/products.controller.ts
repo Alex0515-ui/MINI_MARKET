@@ -26,6 +26,18 @@ export class ProductController {
     }
 
     @AdminAuth()
+    @Get(":id/admin") // Получение одного админом
+    get_prod_admin(@Param('id', ParseIntPipe) id: number) {
+        return this.product_service.get_product_by_admin(id)
+    }
+
+    @AdminAuth()
+    @Get("admin") // Получение всех админом
+    get_all_prod_admin() {
+        return this.product_service.get_products_by_admin()
+    }
+
+    @AdminAuth()
     @Put(':id/update') // Обновление
     update_prod(
      @Param('id', ParseIntPipe) id: number,

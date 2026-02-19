@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
-import { Repository } from "typeorm";
+import { Not, Repository } from "typeorm";
 import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
 
 
@@ -33,15 +33,41 @@ export class ProductService {
         return product
     }
 
+    // Получение с количеством на складе
+    async get_product_with_count(id: number) {
+        const product = await this.repo.findOne({
+            where: {id}, 
+            select: ['id', 'title', 'description', 'image', 'price', 'count']
+        })
+        if (!product) {
+            throw new NotFoundException("Такого продукта нету")
+        }
+        return product
+    }
+
     // Получение всех продуктов
     async get_all_products() {
         const products = await this.repo.find({ take: 20, skip: 0, order: {id: 'DESC'}}) // Пагинация
         return products
     }
 
+    // Получение админом продукта (Для проверки на складе)
+    async get_product_by_admin(id: number) {
+        const product = await this.repo.findOne({where: {id}, select: ["id", "title", "description", "image", "price", "count"]})
+        if (!product) {
+            throw new NotFoundException("Такого продукта нету")
+        }
+        return product
+    }
+
+    // Получение админом продуктов (Для проверки на складе и отчетов)
+    async get_products_by_admin() {
+        const products = await this.repo.find({select: ["id", "title", "description", "image", "price", "count"]})
+        return products
+    }
     // Обновление продукта
     async update_product(id: number, dto: UpdateProductDTO): Promise<Product> {
-        const product = await this.get_product(id);
+        const product = await this.get_product_with_count(id)
         Object.assign(product, dto);
         return await this.repo.save(product);
     }

@@ -1,7 +1,7 @@
 import { IsInt, IsNotEmpty, IsString } from "class-validator";
 import { PartialType } from "@nestjs/mapped-types";
 
-export class CreateProductDTO { // Тип создания прожукта
+export class CreateProductDTO { // Тип создания продукта
 
     @IsString({message: "Название должно быть строкой!"})
     @IsNotEmpty({message: "Необходимо ввести название продукта!"})
@@ -15,10 +15,13 @@ export class CreateProductDTO { // Тип создания прожукта
     @IsNotEmpty({message: "Необходимо ввести URL картинки!"})
     image: string;
 
-    @IsInt({message: "Цена должно быть строкой!"})
+    @IsInt({message: "Цена должно быть числом!"})
     @IsNotEmpty({message: "Необходимо ввести цену товара!"})
     price: number;
 
+    @IsInt({message: "Количество товаров должно быть числом"})
+    @IsNotEmpty({message: "Необходимо ввести количество товара на складе!"})
+    count: number;
 }
 
 // Тип редактирования продукта
