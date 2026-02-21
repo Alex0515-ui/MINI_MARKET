@@ -6,6 +6,7 @@ import { User, UserRole } from "./users.entity";
 import { Repository } from "typeorm";
 import * as bcrypt from 'bcrypt'
 import { AuthService } from "src/auth/auth.service";
+import { Wallet } from "src/payment/payment.entity";
 
 @Injectable()
 export class UserService {
@@ -13,7 +14,10 @@ export class UserService {
     constructor(
         @InjectRepository(User)
         @Inject(forwardRef(() => AuthService))
-        private readonly repo: Repository<User> // Обращения будущие к таблице Users в БД
+        private readonly repo: Repository<User>, // Обращения будущие к таблице Users в БД
+        @InjectRepository(Wallet)
+        private readonly wallet: Repository<Wallet>
+
     ) {}
 
     // Хэширование пароля
@@ -35,9 +39,12 @@ export class UserService {
         if (user_exists) {
             throw new ConflictException('Пользователь с таким именем уже существует!')
         }
-
+        
         const user = this.repo.create({name: dto.name, password: hashed_password, role: UserRole.USER})
+    
         const saved = await this.repo.save(user);
+        const wallet = this.wallet.create({balance: 0, user: user});
+        await this.wallet.save(wallet)
 
         return saved
     }
@@ -72,6 +79,15 @@ export class UserService {
         const user = await this.getUser(id)
         await this.repo.remove(user)
         return {"message": "Пользователь был успешно удален!"}
+    }
+
+    // Проверка кошелька
+    async check_wallet_balance(user_id: number) {
+        const wallet = await this.wallet.findOne({where: {user: {id: user_id}}})
+        if (!wallet) {
+            throw new NotFoundException("Кошелек не найден!")
+        }
+        return wallet.balance;
     }
 }
 

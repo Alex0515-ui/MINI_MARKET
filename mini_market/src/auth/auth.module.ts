@@ -9,6 +9,7 @@ import jwtConfig from './jwt.config';
 import { UsersModule } from 'src/users/users.module';
 import { UserService } from 'src/users/users.service';
 import { JwtStrategy } from './jwt.strategy';
+import { Wallet } from 'src/payment/payment.entity';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { JwtStrategy } from './jwt.strategy';
       signOptions: config.signOptions
     }),
   }), 
-  TypeOrmModule.forFeature([User]),
+  TypeOrmModule.forFeature([User, Wallet]),
   forwardRef(() => UsersModule), 
   ConfigModule.forFeature(jwtConfig)
   ],

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
 import { Not, Repository } from "typeorm";
@@ -12,14 +12,14 @@ export class ProductService {
     private readonly repo: Repository<Product>) {}
 
     // Создание продукта
-    async create_product(dto: CreateProductDTO): Promise<Product> {
+    async create_product(dto: CreateProductDTO, admin_id: number): Promise<Product> {
         const product_exists = await this.repo.findOne({where: {title: dto.title}})
 
         if (product_exists) {
             throw new ConflictException("Продукт с таким названием уже существует! Попробуйте изменить название")
         }
 
-        const product = this.repo.create(dto)
+        const product = this.repo.create({...dto, creator: {id: admin_id}})
         const saved = await this.repo.save(product)
         return saved
     }
@@ -52,32 +52,58 @@ export class ProductService {
     }
 
     // Получение админом продукта (Для проверки на складе)
-    async get_product_by_admin(id: number) {
+    async get_product_by_admin(id: number, admin_id: number) {
         const product = await this.repo.findOne({where: {id}, select: ["id", "title", "description", "image", "price", "count"]})
         if (!product) {
             throw new NotFoundException("Такого продукта нету")
+        }
+        if (product.creator.id != admin_id) {
+            throw new ForbiddenException("Нельзя посмотреть товар другого админа!")
         }
         return product
     }
 
     // Получение админом продуктов (Для проверки на складе и отчетов)
-    async get_products_by_admin() {
-        const products = await this.repo.find({select: ["id", "title", "description", "image", "price", "count"]})
+    async get_products_by_admin(admin_id: number) {
+        const products = await this.repo.find({where: {creator: {id: admin_id}}, select: ["id", "title", "description", "image", "price", "count"]})
         return products
     }
+
     // Обновление продукта
-    async update_product(id: number, dto: UpdateProductDTO): Promise<Product> {
-        const product = await this.get_product_with_count(id)
+    async update_product(id: number, dto: UpdateProductDTO, admin_id: number): Promise<Product> {
+        const product = await this.repo.findOne({where: {id}, relations: ['creator']})
+
+        if (!product) {
+            throw new NotFoundException(`Товара №${id} нету на складе`)
+        }
+        if (!product.creator) {
+            throw new BadRequestException("У товара нету создателя")
+        }
+        if (product.creator.id !== admin_id) {
+            throw new ForbiddenException("Нельзя изменить чужой товар!")
+        }
+
         Object.assign(product, dto);
         return await this.repo.save(product);
     }
 
     // Удаление продукта
-    async delete_product(id: number) {
-        const product = await this.get_product(id)
-        await this.repo.remove(product)
+    async delete_product(id: number, admin_id: number) {
+        const product = await this.repo.findOne({where: {id}, relations: ['creator']})
+
+        if (!product) {
+            throw new NotFoundException(`Продукт №${id} не найден`)
+        }
+        if (!product.creator) {
+        throw new BadRequestException("У товара нет создателя");
+        }
+        if (product.creator.id !== admin_id) {
+            throw new ForbiddenException("Нельзя удалить товар другого админа")
+        }
+        await this.repo.softDelete(product)
         
         return {"message": "Продукт успешно удален!"}
     }
 
+    
 }

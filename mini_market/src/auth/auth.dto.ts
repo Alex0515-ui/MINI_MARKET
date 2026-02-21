@@ -8,12 +8,10 @@ export class LoginDTO { // Тип данных для логина
 
     @IsString({message: "Имя должно быть строкой!"})
     @IsNotEmpty({message: "Имя не должно быть пустым!"})
-    @MinLength(3, {message: "Слишком короткое имя!"})
     name: string;
 
     @IsString({message: "Пароль должен быть строкой!"})
     @IsNotEmpty({message: "Пароль не должен быть пустым!"})
-    @MinLength(6, {message: "Пароль должен быть длиной не меньше 6 символов!"})
     password: string;
 }
 

@@ -1,4 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Wallet } from "../payment/payment.entity";
+import { Product } from "src/products/products.entity";
 
 export enum UserRole { // Только две роли пока что
     USER = "user",
@@ -18,4 +20,13 @@ export class User { // Модель таблицы сущности пользо
 
     @Column({type:'enum', enum: UserRole, default:UserRole.USER})
     role: UserRole;
+
+    @OneToOne(() => Wallet, (wallet) => wallet.user)
+    @JoinColumn()
+    wallet: Wallet
+
+    @OneToMany(() => Product, (product) => product.creator)
+    products: Product[];
 }
+
+

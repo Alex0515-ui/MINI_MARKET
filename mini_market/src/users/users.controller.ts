@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Reques
 import { UserService } from "./users.service";
 import { CreateUserDTO, UpdateRoleDTO } from "./users.dto";
 import { AdminAuth } from "src/auth/auth.dto";
+import { JwtGuard } from "src/auth/guards/guards.guard";
 
 
 @Controller('users')
@@ -35,4 +36,6 @@ export class UserContrroller {
         return this.user_service.deleteUser(id)
     }
 
+
+    
 }

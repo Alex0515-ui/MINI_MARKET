@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { User } from "src/users/users.entity";
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Product { // Модель сущности продукта в БД
@@ -19,4 +20,11 @@ export class Product { // Модель сущности продукта в БД
 
     @Column({select: false})
     count: number;
+
+    @ManyToOne(() => User)
+    @JoinColumn({name: "creator_id"})
+    creator: User;
+
+    @DeleteDateColumn()
+    deletedAt?: Date;
 }
