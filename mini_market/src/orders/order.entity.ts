@@ -7,7 +7,7 @@ import { Column,
     PrimaryGeneratedColumn} from "typeorm";
 
 import * as dayjs from 'dayjs'
-import { Transform } from "class-transformer";
+import { Exclude, Transform } from "class-transformer";
 
 export enum Status { // Виды статуса заказа
     PENDING = "В ожидании",    
@@ -43,6 +43,7 @@ export class OrderItem { // Сущность товара в заказе
     @PrimaryGeneratedColumn()
     id: number;
 
+    @Exclude()
     @ManyToOne(() => Order, (order) => order.items) // Связь товара с заказом
     order: Order
 

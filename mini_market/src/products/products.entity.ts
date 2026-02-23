@@ -7,6 +7,9 @@ export class Product { // Модель сущности продукта в БД
     id: number;
 
     @Column()
+    creator_id: number
+
+    @Column()
     title: string;
 
     @Column()
@@ -18,10 +21,10 @@ export class Product { // Модель сущности продукта в БД
     @Column('decimal')
     price: number;
 
-    @Column({select: false})
+    @Column()
     count: number;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, {nullable: false})
     @JoinColumn({name: "creator_id"})
     creator: User;
 

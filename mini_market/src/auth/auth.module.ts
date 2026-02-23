@@ -28,7 +28,7 @@ import { Wallet } from 'src/payment/payment.entity';
   ],
 
   controllers: [AuthController],
-  providers: [AuthService, UserService, JwtStrategy]
+  providers: [AuthService, JwtStrategy]
 })
 
 export class AuthModule {}

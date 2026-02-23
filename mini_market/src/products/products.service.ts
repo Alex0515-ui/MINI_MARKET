@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
-import { Not, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
 
 
@@ -26,10 +26,11 @@ export class ProductService {
 
     // Получение одного продукта
     async get_product(id: number): Promise<Product> {
-        const product = await this.repo.findOne({where: {id}})
+        const product = await this.repo.findOne({where: {id}, relations: [ 'creator']})
         if (!product) {
             throw new NotFoundException("Продукта с таким ID нету!")
         }
+        if (product.creator == null) throw new BadRequestException("У товара нету создателя")
         return product
     }
 
