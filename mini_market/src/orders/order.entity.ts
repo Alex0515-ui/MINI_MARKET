@@ -6,8 +6,7 @@ import { Column,
     OneToMany, 
     PrimaryGeneratedColumn} from "typeorm";
 
-import * as dayjs from 'dayjs'
-import { Exclude, Transform } from "class-transformer";
+import { Exclude } from "class-transformer";
 
 export enum Status { // Виды статуса заказа
     PENDING = "В ожидании",    
