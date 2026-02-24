@@ -40,9 +40,10 @@ export class UserService {
         }
         
         const user = this.repo.create({name: dto.name, password: hashed_password, role: UserRole.USER})
-    
-        const saved = await this.repo.save(user);
         const wallet = this.wallet.create({balance: 0, user: user});
+        user.wallet = wallet
+        
+        const saved = await this.repo.save(user);
         await this.wallet.save(wallet)
 
         return saved
@@ -86,7 +87,9 @@ export class UserService {
         if (!wallet) {
             throw new NotFoundException("Кошелек не найден!")
         }
-        return wallet.balance;
+        return {
+            balance: wallet.balance
+        };
     }
 }
 

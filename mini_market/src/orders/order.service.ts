@@ -9,6 +9,7 @@ import { Order, OrderItem, Status } from "./order.entity";
 import { CreateOrderDTO } from "./order.dto";
 import { Transaction, TRANSACTION_TYPE, Wallet } from "src/payment/payment.entity";
 import { User } from "src/users/users.entity";
+import { PaginationDTO } from "src/pagination.dto";
 
 @Injectable()
 export class OrderService {
@@ -23,29 +24,28 @@ export class OrderService {
 
     // Функция создания заказа в корзине
     async createOrderCheckout(userId: number, dto: CreateOrderDTO) {
-        
-        const queryRunner = this.dataSource.createQueryRunner(); // Создание
-        await queryRunner.connect() // Подключение к БД
-        await queryRunner.startTransaction(); // Начало транзакции
-        
-        try {
+        const saved_order = await this.dataSource.transaction(async (manager) => {
+            
             let total_amount = 0
             let orderItems: OrderItem[] = []
 
             for (const item of dto.basket) {
-                const product = await queryRunner.manager.findOne(Product, {
+                const product = await manager.findOne(Product, {
                     where: {id: item.product_id}, 
-                    // lock: {mode: 'pessimistic_write'} // Чтобы сразу несколько людей могли покупать товар
+                    relations: ['creator'],
+                    lock: {mode: 'pessimistic_write', tables: ['product']} // Чтобы сразу несколько людей могли покупать товар
                 }) // Поиск продукта
 
                 if (!product) {
                     throw new BadRequestException(`Товар №${item.product_id} отсутствует`)
                 }
-
                 if (item.quantity > product.count) {
                     throw new BadRequestException(`Не хватает товаров на складе`)
                 }
-                
+                if (product.creator.id == userId) {
+                    throw new BadRequestException("Нельзя купить товары у себя!")
+                }
+
                 const item_price = item.quantity * Number(product.price)
                 total_amount += item_price // Добавление стоимости товара в общую стоимость
 
@@ -57,167 +57,116 @@ export class OrderService {
                 orderItems.push(orderItem)
 
                 product.count -= item.quantity // Уменьшение товара на складе
-                
-                await queryRunner.manager.save(product);
-                
-        }
+                    
+                await manager.save(product);
+                    
+            }
 
-        const newOrder = queryRunner.manager.create(Order, { // Создание нового заказа
-            user_id: userId, 
-            amount: total_amount.toString(),
-            items: orderItems, 
-            status: Status.PENDING})
-        
-        const saved_order = await queryRunner.manager.save(newOrder)
-        
-        await queryRunner.commitTransaction() // Сохранение транзакции
-
-        await this.orderQueue.add('check-expiration', {orderId: saved_order.id}, { // Добавление заказа в очередь
-            delay: 1800000, // 30 минут
-            removeOnComplete: true  // Удаление из Redis 
+            const newOrder = manager.create(Order, { // Создание нового заказа
+                user_id: userId, 
+                amount: total_amount.toString(),
+                items: orderItems, 
+                status: Status.PENDING})
+            
+            return await manager.save(newOrder)
+            
         })
-        
-        return saved_order
-        }
-
-        catch(e) {
-            await queryRunner.rollbackTransaction() // Полный откат, при любой ошибке
-            if (e instanceof BadRequestException) throw e; // Если товара нет
-            throw new InternalServerErrorException("Ошибка при создании заказа") // Другие ошибки
-        }
-
-        finally {
-            await queryRunner.release()
+        // await this.orderQueue.add('check-expiration', 
+        //     { orderId: saved_order.id }, 
+        //     { delay: 1800000, removeOnComplete: true }
+        // ); 
+        return {
+            id: saved_order.id,
+            items: saved_order.items.map(item => ({
+                quantity: item.quantity,
+                product: {
+                    id: item.product.id,
+                    title: item.product.title,
+                    description: item.product.description,
+                    image: item.product.image,
+                    price: item.product.price
+                }
+            })),
+            amount: saved_order.amount,
+            status: saved_order.status,
+            time: saved_order.created_at
         }
     }
 
     // Функция для подтверждения оплаты заказа
-    async confirmOrder(orderId: number) {
-        
-        const queryRunner = this.dataSource.createQueryRunner(); // Создание
-        await queryRunner.connect() // Подключение к БД
-        await queryRunner.startTransaction(); // Начало транзакции
-
+    async confirmOrder(orderId: number, userId: number) {
+        return this.dataSource.transaction(async (manager) => {
         try {
-            const order = await queryRunner.manager.findOne(Order, { // Поиск заказа
+            const order = await manager.findOne(Order, { // Поиск заказа
                 where: {id: orderId}, 
-                relations: ['items', 'items.product']
-            }); // Поиск заказа
+                relations: ['items', 'items.product', 'items.product.creator', 'items.product.creator.wallet']
+            }); 
             
             if (!order) {
                 throw new BadRequestException(`Заказ №${orderId} не найден`)
+            }
+            if (order.user_id !== userId) {
+                throw new BadRequestException("Нельзя оформить чужой заказ!")
             }
             if (order.status !== Status.PENDING) {
                 throw new BadRequestException("Заказ уже обработан")
             }
 
-            const user = await queryRunner.manager.findOne(User, { // Поиск пользователя
-                where: { id: order.user_id },
-                relations: ['wallet'] 
-            });            
-            if (!user) throw new BadRequestException("Пользователь не найден")
-            let total_amount = 0
+            const user = await manager.findOne(User, {where: { id: order.user_id }, relations: ['wallet']});            
+            if (!user) throw new BadRequestException("Клиент не найден")
 
-            for (let item of order.items) {                 // Счет суммы товаров
-                const product = await queryRunner.manager.findOne(Product, {
-                    where: {id: item.product.id}, 
-                    select: ['id', 'title', 'description', 'image', 'price', 'count'],
-                    relations: ['creator']
-                }) 
-
-                if (!product) throw new NotFoundException("Продукт не найден")
-                let item_price = item.quantity * Number(product.price)
-                
-                total_amount += item_price
-
-            }
-
-            if (!user.wallet) { // Кошелек пользователя
-                const wallet = await queryRunner.manager.findOne(Wallet, {where: {user: {id: user.id}}})
-                console.log(wallet)
-                if (wallet) {
-                user.wallet = wallet
-                }
-                else {
-                    const newWallet = queryRunner.manager.create(Wallet, {user: user, balance: 0})
-                }
-            }
+            let total_amount = Number(order.amount)
             
-            if (Number(user.wallet.balance) < total_amount) throw new BadRequestException("Недостаточно средств")
+            if (user.wallet.balance < total_amount) throw new BadRequestException("Недостаточно средств")
             user.wallet.balance -= total_amount // Списание с кошелька
 
-            const transaction1 = queryRunner.manager.create(Transaction, { // 1 Транзакция
+            await manager.save(Transaction, { // 1 Транзакция
                     wallet: user.wallet, 
                     amount: total_amount, 
                     type: TRANSACTION_TYPE.PAYMENT
             })
-
-            await queryRunner.manager.save(transaction1)
-            await queryRunner.manager.save(user.wallet)
+            await manager.save(user.wallet)
 
             for (let item of order.items) {
-                const product = await queryRunner.manager.findOne(Product, { // Поиск товара
-                    where: {id: item.product.id}, 
-                    relations: ['creator']
-                })
+                const product = item.product
+                const creator_id = product.creator.id
                 if (!product) throw new BadRequestException("Товар не найден")
 
-                const admin = await queryRunner.manager.findOne(User, { // Поиск продавца товара
-                    where: {id: product.creator.id}, 
+                const admin = await manager.findOne(User, { // Поиск продавца товара
+                    where: {id: creator_id}, 
                     relations: ['wallet']
                 })
 
                 if (!admin) throw new BadRequestException("Админ не найден")
-                if (!admin.wallet) {                                        // Кошелек админа продавца
-                    const wallet = await queryRunner.manager.findOne(Wallet, {where: {user: {id: admin.id}}})
-                    console.log(wallet)
-                    if (wallet) {
-                        admin.wallet = wallet
-                    }
-                    else {
-                        const newWallet = queryRunner.manager.create(Wallet, {user: admin, balance: 0})
-                        await queryRunner.manager.save(newWallet)
-                    }
-                }  
+                if (!admin.wallet) throw new BadRequestException("Кошелек админа не найден")
                 if (!product) throw new BadRequestException("Товар не найден")
 
                 const item_price = item.quantity * Number(product.price) // Начисление админу
-                admin.wallet.balance = Number(admin.wallet.balance) + item_price
+                admin.wallet.balance += item_price
 
-                const transaction2 = queryRunner.manager.create(Transaction, { // 2 Транзакция
+                await manager.save(Transaction, { // 2 Транзакция
                     wallet: admin.wallet, 
                     amount: item_price, 
                     type: TRANSACTION_TYPE.REFILLING
                 })
-                await queryRunner.manager.save(transaction2)
-                await queryRunner.manager.save(admin.wallet)
+                await manager.save(admin.wallet)
             }
             order.status = Status.SHIPPED; // Меняем статус
 
-            const saved_order = await queryRunner.manager.save(order)
-            
-            await queryRunner.commitTransaction()
-            return saved_order
+            await manager.save(order)
+            return {"message": `Заказ №${order.id} успешно оплачен!`}
         }
         catch(e) {
-            await queryRunner.rollbackTransaction() // Откат при ошибке
-            if (e instanceof BadRequestException) throw e; // Если проблема с товаром
-            throw new InternalServerErrorException("Произошла ошибка при оплате заказа") // Остальные ошибки
+            console.log(e)
         }
-        finally {
-            await queryRunner.release() 
-        }
-        
+        })
     }
 
     // Функция завершения заказа
     async completeOrder(orderId:number) {
-        const queryRunner = this.dataSource.createQueryRunner()
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
-
-        try {
-            const order = await queryRunner.manager.findOne(Order, {where: {id: orderId}}); // Поиск заказа
+        return await this.dataSource.transaction(async (manager) => {
+            
+            const order = await manager.findOne(Order, {where: {id: orderId}}); // Поиск заказа
 
             if (!order) {
                 throw new BadRequestException(`Заказ №${orderId} не существует`);
@@ -230,31 +179,20 @@ export class OrderService {
             }
 
             order.status = Status.COMPLETED; // Изменение статуса
-            const saved_order = await queryRunner.manager.save(order);
-            await queryRunner.commitTransaction(); // Сохранение
-            return saved_order;
-        }
+            await manager.save(order);
+            return {"message": `Заказ №${order.id} был успешно завершен!`}
 
-        catch(e) {
-            await queryRunner.rollbackTransaction() // Откат при ошибке
-            if (e instanceof BadRequestException) throw e;
-            throw new InternalServerErrorException("Произошла ошибка при завершении заказа")
-        }
+        })
 
-        finally {
-            await queryRunner.release();
-        }
+        
     }
 
     // Функция для отмены заказа
     async cancelOrder(orderId: number) {
 
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
-
-        try {
-            const order = await queryRunner.manager.findOne(Order, {
+        return await this.dataSource.transaction(async (manager) => {
+            
+            const order = await manager.findOne(Order, {
                 where: {id: orderId}, 
                 relations: ['items', 'items.product', ] // Для получения всех деталей заказа
             }) 
@@ -268,87 +206,61 @@ export class OrderService {
             if (order.status == Status.COMPLETED) {
                 throw new BadRequestException("Завершенный заказ невозможно отменить");
             }
-            if (order.status == Status.SHIPPED) {
-                for (const item of order.items) { // Возврат товаров на склад
-                    const product = await queryRunner.manager.findOne(Product, {where: {id: item.product.id}, relations: ['creator']})
+
+            for (const item of order.items) { // Возврат товаров на склад
+                    const product = await manager.findOne(Product, {
+                        where: {id: item.product.id}, 
+                        relations: ['creator']
+                    })
+
                     if (product) {
                         product.count += item.quantity;
-                        await queryRunner.manager.save(product);
-                    console.log(product)
-                    console.log(product.creator)
-                    const admin = await queryRunner.manager.findOne(User, {
-                        where: {id: product.creator.id}, 
-                        relations: ['wallet']
-                    })
+                        await manager.save(product);
 
-                    if (!admin) throw new BadRequestException("Админ не найден!")
-                    
-                    if (!admin.wallet) {                                        // Кошелек админа продавца
-                        const wallet = await queryRunner.manager.findOne(Wallet, {where: {user: {id: admin.id}}})
-                        console.log(wallet)
-                        if (wallet) {
-                            admin.wallet = wallet
-                        }
-                        else {
-                            const newWallet = queryRunner.manager.create(Wallet, {user: admin, balance: 0})
-                            await queryRunner.manager.save(newWallet)
-                        }
-                    }
 
-                    const item_price = item.purchase_price * item.quantity
-                    admin.wallet.balance = Number(admin.wallet.balance) - item_price
-
-                    const transaction = queryRunner.manager.create(Transaction, {
-                        wallet: admin.wallet, 
-                        amount: item_price, 
-                        type: TRANSACTION_TYPE.WITHDRAWAL
-                    })
-
-                    await queryRunner.manager.save(transaction)
-                    await queryRunner.manager.save(admin)
-                    
-                    }
-                }
-                const user = await queryRunner.manager.findOne(User, {where: {id: order.user_id}, relations: ['wallet']})
-                if (!user) throw new BadRequestException("Клиент не найден")
-                if (!user.wallet) {                                        // Кошелек админа продавца
-                    const wallet = await queryRunner.manager.findOne(Wallet, {where: {user: {id: user.id}}})
-                    console.log(wallet)
-                    if (wallet) {
-                        user.wallet = wallet
-                    }
-                    else {
-                        const newWallet = queryRunner.manager.create(Wallet, {user: user, balance: 0})
-                        await queryRunner.manager.save(newWallet)
-                    }
-                }
-                user.wallet.balance = Number(user.wallet.balance) + Number(order.amount)
-
-                const transaction = queryRunner.manager.create(Transaction, {
-                    wallet: user.wallet, 
-                    amount: Number(order.amount), 
-                    type: TRANSACTION_TYPE.REFILLING
+            if (order.status == Status.SHIPPED) {
+                const admin = await manager.findOne(User, {
+                    where: {id: product.creator.id}, 
+                    relations: ['wallet']
                 })
-                await queryRunner.manager.save(transaction)
-                 // Изменение статуса
+
+                if (!admin) throw new BadRequestException("Админ не найден!")
+
+                const item_price = item.purchase_price * item.quantity
+                admin.wallet.balance -= item_price // Снимаем с продавца админа стоимость товара
+                    
+
+                const transaction = manager.create(Transaction, { // Создание транзакции
+                    wallet: admin.wallet, 
+                    amount: item_price, 
+                    type: TRANSACTION_TYPE.WITHDRAWAL
+                })
+
+                await manager.save(transaction)
+                await manager.save(admin)
+                    
+                    }
+                }     
             }
-            order.status = Status.CANCELLED;
-            await queryRunner.manager.save(order);
-            await queryRunner.commitTransaction();
+            const user = await manager.findOne(User, {where: {id: order.user_id}, relations: ['wallet']}) 
+            if (!user) throw new BadRequestException("Клиент не найден")
+            user.wallet.balance += Number(order.amount)
+            await manager.save(user.wallet) // Возврат средств пользователю
+
+            const transaction = manager.create(Transaction, { // Создание транзакции
+                wallet: user.wallet, 
+                amount: Number(order.amount), 
+                type: TRANSACTION_TYPE.REFILLING
+            })
+            await manager.save(transaction)
+
+            order.status = Status.CANCELLED; // Изменение статуса
+            await manager.save(order);
 
             return {"message": `Заказ №${orderId} был успешно отменен, товары возвращены на склад!`};
-        }
-
-        catch(e) {
-            console.log(e);
-            await queryRunner.rollbackTransaction(); // Откат
-            if (e instanceof BadRequestException) throw e;
-            throw new InternalServerErrorException("Ошибка при отмене заказа");
-        }
-
-        finally {
-            await queryRunner.release();
-        }
+        
+        })
+        
     }
 
     // Удаление заказа пользователем
@@ -361,7 +273,9 @@ export class OrderService {
         if (order.user_id != userId) {
             throw new BadRequestException("Нельзя отменить чужой заказ!")
         }
-
+        if (order.status !== Status.PENDING) {
+            throw new BadRequestException("Нельзя отменить заказ который уже отправлен!")
+        }
         return await this.cancelOrder(orderId)
     }
 
@@ -380,12 +294,22 @@ export class OrderService {
     }
 
     // Получение всех заказов в Личном кабинете
-    async get_my_orders(userId: number) {
-        return await this.order.find({
+    async get_my_orders(userId: number, dto: PaginationDTO) {
+        const {limit = 10, offset = 0} = dto
+
+        const [data, total] = await this.order.findAndCount({
             where: {user_id: userId},
-            relations: ['items', 'items.product'], // Чтобы видел товары в заказе
-            order: {created_at: 'DESC'} // Новые заказы сначала
+            take: limit,
+            skip: offset,
+            relations: ['items', 'items.product'],
+            order: {created_at: "DESC"}
         })
+
+        return {
+            orders: data,
+            count: total,
+            nextPage: total > offset + limit ? offset + limit : null
+        }
     }
 
     // Просмотр конкретного заказа
@@ -398,7 +322,22 @@ export class OrderService {
             throw new BadRequestException(`Заказ №${orderId} не существует`)
         }
 
-        return order
+        return {
+            id: order.id,
+            items: order.items.map(item => ({
+                quantity: item.quantity,
+                product: {
+                    id: item.product.id,
+                    title: item.product.title,
+                    description: item.product.description,
+                    image: item.product.image,
+                    price: item.product.price
+                }
+            })),
+            amount: order.amount,
+            status: order.status,
+            time: order.created_at
+        }
     }
 
     // Получение заказа админом

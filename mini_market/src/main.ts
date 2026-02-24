@@ -6,12 +6,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
+    transformOptions: {enableImplicitConversion: true},
     transform: true,
   }));
+
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
   const config = new DocumentBuilder() // Swagger документация для API 
   .setTitle('My Mini Market')
@@ -19,6 +20,7 @@ async function bootstrap() {
   .setVersion('1.0')
   .addBearerAuth()
   .build();
+  
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup('api/docs', app, document)
 

@@ -20,7 +20,7 @@ export class User { // Модель таблицы сущности пользо
     @Column({type:'enum', enum: UserRole, default:UserRole.USER})
     role: UserRole;
 
-    @OneToOne(() => Wallet, (wallet) => wallet.user)
+    @OneToOne(() => Wallet, (wallet) => wallet.user, {cascade: true, eager: true})
     @JoinColumn()
     wallet: Wallet
 

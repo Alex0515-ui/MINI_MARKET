@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseInterceptors } from "@nestjs/common";
 import { UserService } from "./users.service";
 import { CreateUserDTO, UpdateRoleDTO } from "./users.dto";
 import { AdminAuth } from "src/auth/auth.dto";
+import { ExcludeNullInterceptor } from "src/interceptors/interceptors";
 
 
 @Controller('users')
@@ -15,6 +16,7 @@ export class UserContrroller {
     }
 
     @AdminAuth()
+    @UseInterceptors(ExcludeNullInterceptor)
     @Get(':id') // Получение пользователя
     findUser(@Param('id', ParseIntPipe) id: number) {
         return this.user_service.getUser(id)

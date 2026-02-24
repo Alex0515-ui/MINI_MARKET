@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { WalletService } from "./payment.service";
 import { JwtGuard } from "src/auth/guards/guards.guard";
 import { WalletDTO } from "./payment.dto";
 import { UserService } from "src/users/users.service";
 import { AdminAuth } from "src/auth/auth.dto";
+import { DataInterceptor, ExcludeNullInterceptor } from "src/interceptors/interceptors";
 
 @Controller('wallet')
 export class PaymentController {
@@ -25,12 +26,16 @@ export class PaymentController {
     }
 
     @Get("my")
+    @UseInterceptors(ExcludeNullInterceptor)
+    @UseInterceptors(DataInterceptor)
     @UseGuards(JwtGuard)
     check_wallet(@Req() req) {
         return this.user_service.check_wallet_balance(req.user.id)
     }
 
     @Get(':id/find')
+    @UseInterceptors(ExcludeNullInterceptor)
+    @UseInterceptors(DataInterceptor)
     @AdminAuth()
     find_wallet(@Param('id', ParseIntPipe) id: number) {
         return this.wallet_service.get_user_wallet(id)

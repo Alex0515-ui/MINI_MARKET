@@ -79,11 +79,11 @@ export class WalletService {
         }
     }
 
+    // Проверка собственного кошелька
     async get_user_wallet(id: number) {
-
         const wallet = await this.wallet_rep.findOne({where: {id}, relations: ['user']})
         if (!wallet) throw new NotFoundException("Такого кошелька нету")
-        const user_id = wallet.user.id
+
         return {"wallet_id": wallet.id, "balance": wallet.balance, "user": wallet.user}
     }
 }

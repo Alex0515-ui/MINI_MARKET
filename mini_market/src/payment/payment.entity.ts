@@ -13,10 +13,12 @@ export class Wallet { // Кошелек пользователя
     id: number;
 
     @OneToOne(() => User, (user) => user.wallet)
-    @JoinColumn()
     user: User;
 
-    @Column({type: 'decimal', precision: 12, scale: 2, default: 0})
+    @Column({type: 'decimal', precision: 12, scale: 2, default: 0, transformer: {
+        to: (value: number) => value,
+        from: (value: string) => parseFloat(value)
+    }})
     balance: number
 }
 
@@ -28,7 +30,10 @@ export class Transaction { // Сущность транзакции
     @ManyToOne(() => Wallet)
     wallet: Wallet;
 
-    @Column({type:'decimal', precision: 12, scale: 2})
+    @Column({type:'decimal', precision: 12, scale: 2, transformer: {
+        to: (value: number) => value,
+        from: (value: string) => parseFloat(value)
+    }})
     amount: number;
 
     @Column({type: 'enum', enum: TRANSACTION_TYPE})

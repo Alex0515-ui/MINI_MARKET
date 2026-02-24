@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
 import { Repository } from "typeorm";
 import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
+import { PaginationDTO } from "src/pagination.dto";
 
 
 @Injectable()
@@ -47,9 +48,18 @@ export class ProductService {
     }
 
     // Получение всех продуктов
-    async get_all_products() {
-        const products = await this.repo.find({ take: 20, skip: 0, order: {id: 'DESC'}}) // Пагинация
-        return products
+    async get_all_products(dto: PaginationDTO) {
+        const {limit = 10, offset = 0} = dto // Пагинация
+        const [data, total] = await this.repo.findAndCount({
+            take: limit,
+            skip: offset,
+            order: {id: 'DESC'}
+        })
+        return {
+            products: data,
+            count: total,
+            nextPage: total > limit + offset ? limit + offset : null
+        }
     }
 
     // Получение админом продукта (Для проверки на складе)
@@ -65,9 +75,23 @@ export class ProductService {
     }
 
     // Получение админом продуктов (Для проверки на складе и отчетов)
-    async get_products_by_admin(admin_id: number) {
-        const products = await this.repo.find({where: {creator: {id: admin_id}}, select: ["id", "title", "description", "image", "price", "count"]})
-        return products
+    async get_products_by_admin(admin_id: number, dto: PaginationDTO) {
+        const {limit = 10, offset = 0} = dto
+        
+        const [data, total] = await this.repo.findAndCount({
+            relations: ['creator'],
+            where: {creator: {id: admin_id}},
+            select: ["id", "title", "description", "image", "price", "count"],
+            take: limit,
+            skip: offset,
+            order: {id: 'DESC'}
+        })
+
+        return {
+            products: data,
+            count: total,
+            nextPage: total > limit + offset ? limit + offset : null
+        }
     }
 
     // Обновление продукта
