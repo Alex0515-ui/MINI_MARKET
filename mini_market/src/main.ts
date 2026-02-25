@@ -2,16 +2,19 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { MyGlobalExceptionFilter } from './common/exception.filters';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  app.useGlobalPipes(new ValidationPipe({
+  app.useGlobalPipes(new ValidationPipe({ // Валидация
     whitelist: true,
     forbidNonWhitelisted: true,
     transformOptions: {enableImplicitConversion: true},
     transform: true,
   }));
+
+  app.useGlobalFilters(new MyGlobalExceptionFilter()) // Глобальный кастомный Фильтр ошибок
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
   const config = new DocumentBuilder() // Swagger документация для API 

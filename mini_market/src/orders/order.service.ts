@@ -6,10 +6,9 @@ import { DataSource } from "typeorm";
 import type { Queue } from "bull";
 import { InjectQueue } from "@nestjs/bull";
 import { Order, OrderItem, Status } from "./order.entity";
-import { CreateOrderDTO } from "./order.dto";
+import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
 import { Transaction, TRANSACTION_TYPE, Wallet } from "src/payment/payment.entity";
 import { User } from "src/users/users.entity";
-import { PaginationDTO } from "src/pagination.dto";
 
 @Injectable()
 export class OrderService {
@@ -293,24 +292,25 @@ export class OrderService {
         
     }
 
-    // Получение всех заказов в Личном кабинете
-    async get_my_orders(userId: number, dto: PaginationDTO) {
-        const {limit = 10, offset = 0} = dto
+    // Получение всех заказов в Личном кабинете   (Пагинация/Фильтрация)
+    async get_my_orders(userId: number, dto: OrderFilterDTO) {
+        const {limit = 10, offset = 0, minValue, maxValue, status} = dto
 
-        const [data, total] = await this.order.findAndCount({
-            where: {user_id: userId},
-            take: limit,
-            skip: offset,
-            relations: ['items', 'items.product'],
-            order: {created_at: "DESC"}
-        })
+        const order_query = this.order.createQueryBuilder('ord').where('ord.user_id = :userId', {userId})
 
-        return {
-            orders: data,
-            count: total,
-            nextPage: total > offset + limit ? offset + limit : null
+        if (minValue) {
+            order_query.andWhere('ord.amount >= :minValue', {minValue});
         }
-    }
+        if (maxValue) {
+            order_query.andWhere('ord.amount <= :maxValue', {maxValue});
+        }
+        if (status) {
+            order_query.andWhere('ord.status = :status', {status})
+        }
+
+        order_query.take(limit).skip(offset).orderBy('ord.created_at', 'DESC')
+        return order_query.getMany()
+    }   
 
     // Просмотр конкретного заказа
     async get_my_order(orderId: number, userId: number) {

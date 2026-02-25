@@ -2,7 +2,7 @@ import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } fr
 import { Reflector } from "@nestjs/core";
 import { IsNotEmpty, IsString, MinLength } from "class-validator";
 import { UserRole } from "src/users/users.entity";
-import { JwtGuard, RoleGuard } from "./guards/guards.guard";
+import { JwtGuard, RoleGuard } from "../common/guards.guard";
 
 export class LoginDTO { // Тип данных для логина
 

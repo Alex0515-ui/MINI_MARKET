@@ -1,4 +1,6 @@
-import { IsArray } from "class-validator";
+import { IsArray, IsEnum, IsOptional } from "class-validator";
+import { Status } from "./order.entity";
+import { PaginationDTO, ValueFilterDTO } from "src/common/pagination.dto";
 
 export class CreateOrderDTO { // DTO корзины заказа
     @IsArray()
@@ -9,3 +11,8 @@ export interface OrderExpirationPayload {
     orderId: number
 }
 
+export class OrderFilterDTO extends ValueFilterDTO {
+    @IsOptional()
+    @IsEnum(Status)
+    status?: Status
+}

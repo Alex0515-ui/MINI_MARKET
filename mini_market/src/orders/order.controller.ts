@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, UseInterceptors } from "@nestjs/common";
-import { JwtGuard } from "src/auth/guards/guards.guard";
+import { JwtGuard } from "src/common/guards.guard";
 import { AdminAuth } from "src/auth/auth.dto";
 import { OrderService } from "./order.service";
-import { CreateOrderDTO } from "./order.dto";
-import { DataInterceptor, ExcludeNullInterceptor } from "src/interceptors/interceptors";
-import { PaginationDTO } from "src/pagination.dto";
+import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
+import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
+
 
 @Controller('orders')
 export class OrderController {
@@ -16,7 +16,7 @@ export class OrderController {
     @Get('my')
     @UseInterceptors(ExcludeNullInterceptor)
     @UseGuards(JwtGuard) // Получение всех своих заказов
-    async get_my_orders(@Req() req, @Query() dto: PaginationDTO) {
+    async get_my_orders(@Req() req, @Query() dto: OrderFilterDTO) {
         return this.order_service.get_my_orders(req.user.id, dto)
     }
 

@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, InternalServerErrorException, NotFound
 import { DataSource, Repository } from "typeorm";
 import { Wallet, Transaction, TRANSACTION_TYPE } from "./payment.entity";
 import { InjectRepository } from "@nestjs/typeorm";
+import { product_stat, TransactionFilterDTO } from "./payment.dto";
+import { Order, Status } from "src/orders/order.entity";
 
 @Injectable()
 export class WalletService {
@@ -9,6 +11,10 @@ export class WalletService {
     constructor(
         @InjectRepository(Wallet)
         private wallet_rep: Repository<Wallet>,
+        @InjectRepository(Transaction)
+        private trans_rep: Repository<Transaction>,
+        @InjectRepository(Order)
+        private order_rep: Repository<Order>,
         private dataSource: DataSource // Для гибкого управления в ORM
     ) {}
 
@@ -85,5 +91,71 @@ export class WalletService {
         if (!wallet) throw new NotFoundException("Такого кошелька нету")
 
         return {"wallet_id": wallet.id, "balance": wallet.balance, "user": wallet.user}
+    }
+
+    // Получение всех своих транзакций (Пагинация/Фильтрация)
+    async get_all_transactions(user_id: number, dto: TransactionFilterDTO) {
+        const {limit = 10, offset = 0, minValue, maxValue, type} = dto
+
+        const transaction_query = this.trans_rep.createQueryBuilder('trans')
+        .leftJoin('trans.wallet', 'wallet')
+        .leftJoin('wallet.user', 'user')
+        .where('user.id = :user_id', {user_id})
+
+        if (minValue) {
+            transaction_query.andWhere('trans.amount >= :minValue', {minValue})
+        }
+        if (maxValue) {
+            transaction_query.andWhere('trans.amount <= :maxValue', {maxValue})
+        }
+        if (type) {
+            transaction_query.andWhere('trans.type = :type', {type})
+        }
+        transaction_query.take(limit).skip(offset).orderBy('trans.created_at', 'DESC')
+
+        return transaction_query.getMany()
+    }
+
+
+    // Админ статистика
+    async get_admin_stats(admin_id: number) {
+        const orders = await this.order_rep.createQueryBuilder('ord')
+        .innerJoinAndSelect('ord.items', 'item')
+        .innerJoinAndSelect('item.product', 'product')
+        .where('product.creator_id = :admin_id', {admin_id}).getMany() // Поиск заказа с продуктом админа
+
+        let returned_earnings = 0 // Возвращено клиентам при отмене
+        let returned_products = 0 // Возвращено продуктов на склад
+        let Product_sold = 0 // Общее количество проданных товаров
+        let Total_earnings = 0 // Общий доход
+        let products : product_stat[] = []
+
+        orders.forEach(order => { // Счет товаров и дохода
+            order.items.forEach(item => {
+                const item_total = item.purchase_price * item.quantity
+                if (order.status == Status.CANCELLED) {
+                    returned_earnings += item_total
+                    returned_products += item.quantity
+                }
+                if (order.status == Status.SHIPPED || Status.COMPLETED) {
+                    Total_earnings += item_total
+                    Product_sold += item.quantity
+                    products.push({id: item.product.id, count: item.quantity})
+                }
+            })
+        })
+    
+        const best_product = products.reduce((prev, current) => { // Самый продаваемый продукт
+            return (prev.count > current.count) ? prev : current
+        })
+
+        return {
+            "Доход" : Total_earnings,
+            "Продано продуктов" : Product_sold,
+            "Возвращено продуктов на склад" : returned_products,
+            "Возвращено средств" : returned_earnings,
+            "Лучший продукт" : best_product
+        }
+
     }
 }

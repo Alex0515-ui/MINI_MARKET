@@ -2,8 +2,9 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
 import { Repository } from "typeorm";
-import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
-import { PaginationDTO } from "src/pagination.dto";
+import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
+import { PaginationDTO } from "src/common/pagination.dto";
+import { min } from "class-validator";
 
 
 @Injectable()
@@ -74,24 +75,24 @@ export class ProductService {
         return product
     }
 
-    // Получение админом продуктов (Для проверки на складе и отчетов)
-    async get_products_by_admin(admin_id: number, dto: PaginationDTO) {
-        const {limit = 10, offset = 0} = dto
+    // Получение админом продуктов с фильтрацией и пагинацией (Для проверки на складе и отчетов)
+    async get_products_by_admin(admin_id: number, dto: ProductFilterDTO) {
+        const { limit = 10, offset = 0, minValue, maxValue } = dto
         
-        const [data, total] = await this.repo.findAndCount({
-            relations: ['creator'],
-            where: {creator: {id: admin_id}},
-            select: ["id", "title", "description", "image", "price", "count"],
-            take: limit,
-            skip: offset,
-            order: {id: 'DESC'}
-        })
-
-        return {
-            products: data,
-            count: total,
-            nextPage: total > limit + offset ? limit + offset : null
+        const product_query = this.repo.createQueryBuilder('prod')
+        .innerJoin('prod.creator', 'user')
+        .where('user.id = :admin_id', {admin_id})
+        
+        if (minValue) {
+            product_query.andWhere('prod.price >= :minValue', {minValue})
         }
+        if (maxValue) {
+            product_query.andWhere('prod.price <= :maxValue', {maxValue})
+        }
+        
+        product_query.take(limit).skip(offset).orderBy('prod.id', 'DESC')
+        
+        return product_query.getMany()
     }
 
     // Обновление продукта

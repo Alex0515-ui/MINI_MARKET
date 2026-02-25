@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseInt
 import { UserService } from "./users.service";
 import { CreateUserDTO, UpdateRoleDTO } from "./users.dto";
 import { AdminAuth } from "src/auth/auth.dto";
-import { ExcludeNullInterceptor } from "src/interceptors/interceptors";
+import { ExcludeNullInterceptor } from "src/common/interceptors";
 
 
 @Controller('users')
