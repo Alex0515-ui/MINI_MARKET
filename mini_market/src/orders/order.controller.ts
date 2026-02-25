@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { JwtGuard } from "src/common/guards.guard";
-import { AdminAuth } from "src/auth/auth.dto";
+import { AdminAuth, SellerAuth } from "src/auth/auth.dto";
 import { OrderService } from "./order.service";
 import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
@@ -32,7 +32,7 @@ export class OrderController {
     @UseInterceptors(ExcludeNullInterceptor)
     @AdminAuth() // Получение заказа админом
     async get_order(@Param('id', ParseIntPipe) orderId: number) {
-        return this.order_service.get_order(orderId)
+        return this.order_service.get_order(orderId) 
     }
 
     @Post('create')
@@ -59,7 +59,7 @@ export class OrderController {
     @UseInterceptors(DataInterceptor)
     @AdminAuth() // Отмена заказа админом
     async cancelOrder(@Param('id', ParseIntPipe) orderId: number) {
-        return this.order_service.cancelOrder(orderId)
+        return this.order_service.cancelOrder(orderId) 
     }
 
     @Patch(':id/cancel')

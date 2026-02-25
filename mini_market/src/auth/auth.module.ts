@@ -7,7 +7,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/users.entity';
 import jwtConfig from './jwt.config';
 import { UsersModule } from 'src/users/users.module';
-import { UserService } from 'src/users/users.service';
 import { JwtStrategy } from './jwt.strategy';
 import { Wallet } from 'src/payment/payment.entity';
 

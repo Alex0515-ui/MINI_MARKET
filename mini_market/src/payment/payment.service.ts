@@ -118,11 +118,11 @@ export class WalletService {
 
 
     // Админ статистика
-    async get_admin_stats(admin_id: number) {
+    async get_seller_stats(seller_id: number) {
         const orders = await this.order_rep.createQueryBuilder('ord')
         .innerJoinAndSelect('ord.items', 'item')
         .innerJoinAndSelect('item.product', 'product')
-        .where('product.creator_id = :admin_id', {admin_id}).getMany() // Поиск заказа с продуктом админа
+        .where('product.creator_id = :seller_id', {seller_id}).getMany() // Поиск заказа с продуктом продавца
 
         let returned_earnings = 0 // Возвращено клиентам при отмене
         let returned_products = 0 // Возвращено продуктов на склад

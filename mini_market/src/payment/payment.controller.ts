@@ -3,7 +3,7 @@ import { WalletService } from "./payment.service";
 import { JwtGuard } from "src/common/guards.guard";
 import { TransactionFilterDTO, WalletDTO } from "./payment.dto";
 import { UserService } from "src/users/users.service";
-import { AdminAuth } from "src/auth/auth.dto";
+import { AdminAuth, SellerAuth } from "src/auth/auth.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
 
 @Controller('wallet')
@@ -48,9 +48,9 @@ export class PaymentController {
         return this.wallet_service.get_all_transactions(req.user.id, dto)
     }
 
-    @Get('admin/stats')
-    @AdminAuth()
+    @Get('seller/stats')
+    @SellerAuth()
     get_stats(@Req() req) {
-        return this.wallet_service.get_admin_stats(req.user.id)
+        return this.wallet_service.get_seller_stats(req.user.id)
     }
 }

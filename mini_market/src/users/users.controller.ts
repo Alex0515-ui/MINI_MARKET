@@ -25,7 +25,7 @@ export class UserContrroller {
     @AdminAuth()
     @Patch(':id/role') // Изменение роли пользователя
     updateRole(
-        @Param('id', ParseIntPipe   ) id: number,
+        @Param('id', ParseIntPipe) id: number,
         @Body() dto: UpdateRoleDTO
     ) {
         return this.user_service.updateRole(id, dto.role);

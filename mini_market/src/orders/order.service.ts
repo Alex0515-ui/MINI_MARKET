@@ -339,14 +339,14 @@ export class OrderService {
 
     // Получение заказа админом
     async get_order(orderId:number) {
-        const order = this.order.findOne({
+        const order = await this.order.findOne({
             where: {id: orderId},
             relations: ['items', 'items.product']
         })
         if (!order) {
             throw new BadRequestException(`Заказ №${orderId} нету в базе`)
         }
-
+        
         return order
     }
 }

@@ -1,4 +1,4 @@
-import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from "@nestjs/common";
+import { applyDecorators, UseGuards } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { IsNotEmpty, IsString, MinLength } from "class-validator";
 import { UserRole } from "src/users/users.entity";
@@ -21,13 +21,17 @@ export type AuthPayload = { // Тип данных для полезной на�
     role: string
 }
 
-export const Role = Reflector.createDecorator<string>() // Декоратор для роли
+export const Roles = Reflector.createDecorator<UserRole[]>()
 
 export const AdminAuth = () => applyDecorators( // Укорачиваем декораторы, для чистого кода
     UseGuards(JwtGuard, RoleGuard),
-    Role('admin')   
+    Roles([UserRole.ADMIN])   
 );
 
+export const SellerAuth = () => applyDecorators(
+    UseGuards(JwtGuard, RoleGuard),
+    Roles([UserRole.SELLER, UserRole.ADMIN])
+)
 
 
 

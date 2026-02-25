@@ -4,6 +4,7 @@ import { Product } from "./products.entity";
 import { Repository } from "typeorm";
 import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
 import { PaginationDTO } from "src/common/pagination.dto";
+import { UserRole } from "src/users/users.entity";
 
 
 @Injectable()
@@ -26,25 +27,20 @@ export class ProductService {
     }
 
     // Получение одного продукта
-    async get_product(id: number): Promise<Product> {
+    async get_product(id: number) {
         const product = await this.repo.findOne({where: {id}, relations: [ 'creator']})
         if (!product) {
             throw new NotFoundException("Продукта с таким ID нету!")
         }
         if (product.creator == null) throw new BadRequestException("У товара нету создателя")
-        return product
-    }
-
-    // Получение с количеством на складе
-    async get_product_with_count(id: number) {
-        const product = await this.repo.findOne({
-            where: {id}, 
-            select: ['id', 'title', 'description', 'image', 'price', 'count']
-        })
-        if (!product) {
-            throw new NotFoundException("Такого продукта нету")
+            
+        return {
+            id: product.id,
+            title: product.title,
+            description: product.description,
+            image: product.image,
+            price: product.price
         }
-        return product
     }
 
     // Получение всех продуктов
@@ -63,24 +59,24 @@ export class ProductService {
     }
 
     // Получение админом продукта (Для проверки на складе)
-    async get_product_by_admin(id: number, admin_id: number) {
+    async get_product_by_seller(id: number, admin_id: number, role: UserRole) {
         const product = await this.repo.findOne({where: {id}, select: ["id", "title", "description", "image", "price", "count"]})
         if (!product) {
             throw new NotFoundException("Такого продукта нету")
         }
-        if (product.creator.id != admin_id) {
+        if (product.creator.id != admin_id && role !== UserRole.ADMIN) {
             throw new ForbiddenException("Нельзя посмотреть товар другого админа!")
         }
         return product
     }
 
-    // Получение админом продуктов с фильтрацией и пагинацией (Для проверки на складе и отчетов)
-    async get_products_by_admin(admin_id: number, dto: ProductFilterDTO) {
+    // Получение продавцом продуктов с фильтрацией и пагинацией (Для проверки на складе и отчетов)
+    async get_products_by_seller(seller_id: number, dto: ProductFilterDTO) {
         const { limit = 10, offset = 0, minValue, maxValue } = dto
         
         const product_query = this.repo.createQueryBuilder('prod')
         .innerJoin('prod.creator', 'user')
-        .where('user.id = :admin_id', {admin_id})
+        .where('user.id = :seller_id', {seller_id})
         
         if (minValue) {
             product_query.andWhere('prod.price >= :minValue', {minValue})
@@ -95,7 +91,7 @@ export class ProductService {
     }
 
     // Обновление продукта
-    async update_product(id: number, dto: UpdateProductDTO, admin_id: number): Promise<Product> {
+    async update_product(id: number, dto: UpdateProductDTO, seller_id: number, role: UserRole): Promise<Product> {
         const product = await this.repo.findOne({where: {id}, relations: ['creator']})
 
         if (!product) {
@@ -104,16 +100,16 @@ export class ProductService {
         if (!product.creator) {
             throw new BadRequestException("У товара нету создателя")
         }
-        if (product.creator.id !== admin_id) {
+        if (product.creator.id !== seller_id && role !== UserRole.ADMIN) {
             throw new ForbiddenException("Нельзя изменить чужой товар!")
-        }
+        }   
 
         Object.assign(product, dto);
         return await this.repo.save(product);
     }
 
     // Удаление продукта
-    async delete_product(id: number, admin_id: number) {
+    async delete_product(id: number, seller_id: number, role: UserRole) {
         const product = await this.repo.findOne({where: {id}, relations: ['creator']})
 
         if (!product) {
@@ -122,10 +118,12 @@ export class ProductService {
         if (!product.creator) {
         throw new BadRequestException("У товара нет создателя");
         }
-        if (product.creator.id !== admin_id) {
-            throw new ForbiddenException("Нельзя удалить товар другого админа")
+
+        if (product.creator.id !== seller_id && role !== UserRole.ADMIN) {
+            throw new ForbiddenException("Нельзя удалить товар чужого продавца")
         }
-        await this.repo.softDelete(product)
+        
+        await this.repo.softDelete(id)  // Чтобы в любых прошлых заказов было видно его
         
         return {"message": "Продукт успешно удален!"}
     }

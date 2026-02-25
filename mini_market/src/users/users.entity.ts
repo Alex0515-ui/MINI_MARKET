@@ -3,7 +3,8 @@ import { Wallet } from "../payment/payment.entity";
 
 export enum UserRole { // Только две роли пока что
     USER = "user",
-    ADMIN = "admin"
+    ADMIN = "admin",
+    SELLER = "seller"
 }
 
 @Entity()

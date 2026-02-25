@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Req, UseInterceptors } from "@nestjs/common";
 import { ProductService } from "./products.service";
 import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
-import { AdminAuth} from "src/auth/auth.dto";
+import { AdminAuth, SellerAuth} from "src/auth/auth.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
 import { PaginationDTO } from "src/common/pagination.dto";
 
@@ -10,17 +10,17 @@ export class ProductController {
 
     constructor(private readonly product_service: ProductService) {}
 
-    @AdminAuth()
+    @SellerAuth()
     @Post() // Создание
     create_prod(@Body() dto: CreateProductDTO, @Req() req) {
         return this.product_service.create_product(dto, req.user.id)
     }
 
-    @AdminAuth()
+    @SellerAuth()
     @UseInterceptors(DataInterceptor)
-    @Get("admin") // Получение всех админом
+    @Get("seller") // Получение всех продуктов продавцом
     get_all_prod_admin(@Req() req, @Query() dto: ProductFilterDTO) {
-        return this.product_service.get_products_by_admin(req.user.id, dto)
+        return this.product_service.get_products_by_seller(req.user.id, dto)
     }
 
     @Get(":id") // Получение одного
@@ -39,10 +39,10 @@ export class ProductController {
     @UseInterceptors(ExcludeNullInterceptor)
     @Get(":id/admin") // Получение одного админом
     get_prod_admin(@Param('id', ParseIntPipe) id: number, @Req() req) {
-        return this.product_service.get_product_by_admin(id, req.user.id)
+        return this.product_service.get_product_by_seller(id, req.user.id, req.user.role)
     }
 
-    @AdminAuth()
+    @SellerAuth()
     @UseInterceptors(DataInterceptor)
     @Put(':id/update') // Обновление
     update_prod(
@@ -50,13 +50,13 @@ export class ProductController {
      @Body() dto: UpdateProductDTO,
      @Req() req
     ) {
-        return this.product_service.update_product(id, dto, req.user.id)
+        return this.product_service.update_product(id, dto, req.user.id, req.user.role) 
     }
 
-    @AdminAuth()
+    @SellerAuth()
     @Delete(":id/delete") // Удаление
     delete_prod(@Param('id', ParseIntPipe) id: number, @Req() req) {
-        return this.product_service.delete_product(id, req.user.id)
+        return this.product_service.delete_product(id, req.user.id, req.user.role) 
     }
 
 }
