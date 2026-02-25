@@ -1,14 +1,13 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "src/products/products.entity";
-import { Repository } from "typeorm";
+import { LessThan, Repository } from "typeorm";
 import { DataSource } from "typeorm";
-import type { Queue } from "bull";
-import { InjectQueue } from "@nestjs/bull";
 import { Order, OrderItem, Status } from "./order.entity";
 import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
 import { Transaction, TRANSACTION_TYPE, Wallet } from "src/payment/payment.entity";
 import { User } from "src/users/users.entity";
+import { Cron, CronExpression } from "@nestjs/schedule";
 
 @Injectable()
 export class OrderService {
@@ -17,7 +16,6 @@ export class OrderService {
         @InjectRepository(Wallet) private wallet: Repository<Wallet>,
         @InjectRepository(Order) private order: Repository<Order>,
         private dataSource: DataSource, // Для гибкого управления транзакцией
-        @InjectQueue('order-expiration') private orderQueue: Queue // Очередь для отправки задач в Redis
     ) {}
 
 
@@ -70,10 +68,7 @@ export class OrderService {
             return await manager.save(newOrder)
             
         })
-        // await this.orderQueue.add('check-expiration', 
-        //     { orderId: saved_order.id }, 
-        //     { delay: 1800000, removeOnComplete: true }
-        // ); 
+        
         return {
             id: saved_order.id,
             items: saved_order.items.map(item => ({
@@ -278,18 +273,20 @@ export class OrderService {
         return await this.cancelOrder(orderId)
     }
 
-    // Авто-отмена в случае долгого ожидания в статусе PENDING
-    async cancelExpiredOrder(orderId: number) {
-        const order = await this.order.findOne({where: {id: orderId}})
+    // Удаление после 30 минут ожидания в статусе "PENDING"
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async checkExpirdOrders() {
+        const time = new Date();
+        time.setMinutes(time.getMinutes() - 30) // 30 минут максимум
 
-        if (order && order?.status == Status.PENDING ) {
-            console.log(`Заказ №${orderId} долго стоит в ожидании оплаты, начинаю авто-отмену...`)
-            await this.cancelOrder(orderId)
+        const orders = await this.order.find({where: {
+            status: Status.PENDING, 
+            created_at: LessThan(time)
+        }})
+
+        for (const order of orders) {
+            await this.cancelOrder(order.id) // Авто удаление
         }
-        else {
-            console.log(`Заказ №${orderId} уже обработан, авто-отмена не требуется`)
-        }
-        
     }
 
     // Получение всех заказов в Личном кабинете   (Пагинация/Фильтрация)

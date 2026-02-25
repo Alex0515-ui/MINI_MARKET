@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional } from "class-validator";
-import { PaginationDTO, ValueFilterDTO } from "src/common/pagination.dto";
+import { ValueFilterDTO } from "src/common/pagination.dto";
 import { TRANSACTION_TYPE } from "./payment.entity";
 
 export class WalletDTO {

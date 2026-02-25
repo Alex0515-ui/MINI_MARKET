@@ -1,6 +1,6 @@
 import { IsArray, IsEnum, IsOptional } from "class-validator";
 import { Status } from "./order.entity";
-import { PaginationDTO, ValueFilterDTO } from "src/common/pagination.dto";
+import { ValueFilterDTO } from "src/common/pagination.dto";
 
 export class CreateOrderDTO { // DTO корзины заказа
     @IsArray()

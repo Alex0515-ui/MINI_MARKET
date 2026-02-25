@@ -4,7 +4,6 @@ import { Product } from "./products.entity";
 import { Repository } from "typeorm";
 import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
 import { PaginationDTO } from "src/common/pagination.dto";
-import { min } from "class-validator";
 
 
 @Injectable()

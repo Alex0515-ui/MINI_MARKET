@@ -6,20 +6,15 @@ import { UsersModule } from './users/users.module';
 import { ProductModule } from './products/products.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bull';
 import { OrderModule } from './orders/order.module';
 import { PaymentModule } from './payment/payment.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({isGlobal: true, envFilePath: '.env'}),
+    ConfigModule.forRoot({isGlobal: true, envFilePath: '.env'}), // Переменные окружения
 
-    BullModule.forRoot({ // Redis
-      redis: {
-        host: 'localhost',
-        port: 6379
-      }
-    }),
+    ScheduleModule.forRoot(), // Проверка заказов и очистка
 
     TypeOrmModule.forRootAsync({ // TypeORM PostgresSQL
     imports: [ConfigModule],
