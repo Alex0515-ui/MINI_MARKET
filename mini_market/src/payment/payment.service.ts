@@ -90,11 +90,11 @@ export class WalletService {
         const wallet = await this.wallet_rep.findOne({where: {id}, relations: ['user']})
         if (!wallet) throw new NotFoundException("Такого кошелька нету")
 
-        return {"wallet_id": wallet.id, "balance": wallet.balance, "user": wallet.user}
+        return {"wallet_id": wallet.id, "balance": wallet.balance}
     }
 
     // Получение всех своих транзакций (Пагинация/Фильтрация)
-    async get_all_transactions(user_id: number, dto: TransactionFilterDTO) {
+    async get_my_transactions(user_id: number, dto: TransactionFilterDTO) {
         const {limit = 10, offset = 0, minValue, maxValue, type} = dto
 
         const transaction_query = this.trans_rep.createQueryBuilder('trans')
@@ -116,8 +116,34 @@ export class WalletService {
         return transaction_query.getMany()
     }
 
+    // Транзакции всего ПРИЛОЖЕНИЯ (Пагинация/Фильтрация)
+    async get_all_transactions(dto: TransactionFilterDTO) {
+        const {limit = 10, offset = 0, minValue, maxValue, type, user_id} = dto
 
-    // Админ статистика
+        const transaction_query = this.trans_rep.createQueryBuilder('trans')
+
+        if (user_id) {
+            transaction_query.leftJoin('trans.wallet', 'wallet')
+            .leftJoin('wallet.user', 'user')
+            .where('user.id = :user_id', {user_id})
+        }
+        
+        if (minValue) {
+            transaction_query.andWhere('trans.amount >= :minValue', {minValue})
+        }
+        if (maxValue) {
+            transaction_query.andWhere('trans.amount <= :maxValue', {maxValue})
+        }
+        if (type) {
+            transaction_query.andWhere('trans.type = :type', {type})
+        }
+        
+        transaction_query.take(limit).skip(offset).orderBy('trans.created_at', 'DESC')
+
+        return transaction_query.getMany()
+    }
+
+    // Статистика продавца
     async get_seller_stats(seller_id: number) {
         const orders = await this.order_rep.createQueryBuilder('ord')
         .innerJoinAndSelect('ord.items', 'item')
@@ -156,6 +182,39 @@ export class WalletService {
             "Возвращено средств" : returned_earnings,
             "Лучший продукт" : best_product
         }
+
+    }
+
+    // Получение кошелька админа, там куда падает комиссия
+    async get_wallet_admin() {
+        const wallet = await this.wallet_rep.findOne({where: {user: {id: 1}}})
+
+        return wallet
+    }
+
+    // Получение всех комиссионых транзакций (Пагинация/Фильтрация)
+    async get_transactions_admin(dto: TransactionFilterDTO) {
+        const {limit = 10, offset = 0, minValue, maxValue, type} = dto
+        const user_id = 1
+
+        const transactions_query = this.trans_rep.createQueryBuilder('trans')
+        .leftJoin('trans.wallet', 'wallet')
+        .leftJoin('wallet.user', 'user')
+        .where('user.id = :user_id', {user_id})
+
+        if (minValue) {
+            transactions_query.andWhere('trans.amount >= :minValue', {minValue})
+        }
+        if (maxValue) {
+            transactions_query.andWhere('trans.amount <= :maxValue', {maxValue})
+        }
+        if (type) {
+            transactions_query.andWhere('trans.type = :type', {type})
+        }
+
+        transactions_query.take(limit).skip(offset).orderBy('trans.created_at', 'DESC')
+
+        return transactions_query.getMany()
 
     }
 }

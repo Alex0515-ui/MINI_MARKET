@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Req, UseInterceptors } from "@nestjs/common";
 import { ProductService } from "./products.service";
-import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
+import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
 import { AdminAuth, SellerAuth} from "src/auth/auth.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
-import { PaginationDTO } from "src/common/pagination.dto";
+import { PaginationDTO, ValueFilterDTO } from "src/common/pagination.dto";
 
 @Controller('products')
 export class ProductController {
@@ -19,7 +19,7 @@ export class ProductController {
     @SellerAuth()
     @UseInterceptors(DataInterceptor)
     @Get("seller") // Получение всех продуктов продавцом
-    get_all_prod_admin(@Req() req, @Query() dto: ProductFilterDTO) {
+    get_all_prod_admin(@Req() req, @Query() dto: ValueFilterDTO) {
         return this.product_service.get_products_by_seller(req.user.id, dto)
     }
 
@@ -31,7 +31,7 @@ export class ProductController {
 
     @Get() // Получение всех
     @UseInterceptors(DataInterceptor)
-    get_all_prod(@Query() dto: PaginationDTO) {
+    get_all_prod(@Query() dto: ValueFilterDTO) {
         return this.product_service.get_all_products(dto)
     }
 

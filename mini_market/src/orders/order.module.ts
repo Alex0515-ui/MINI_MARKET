@@ -8,9 +8,7 @@ import { Wallet, Transaction } from "src/payment/payment.entity";
 import { User } from "src/users/users.entity";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Product, Order, OrderItem, Wallet, Transaction, User]),
-    
-    ],
+    imports: [TypeOrmModule.forFeature([Product, Order, OrderItem, Wallet, Transaction, User])],
     controllers: [OrderController],
     providers: [OrderService],
     exports: [OrderService]

@@ -7,11 +7,7 @@ export class CreateOrderDTO { // DTO корзины заказа
     basket: {product_id: number; quantity: number}[];
 }
 
-export interface OrderExpirationPayload {
-    orderId: number
-}
-
-export class OrderFilterDTO extends ValueFilterDTO {
+export class OrderFilterDTO extends ValueFilterDTO { // Фильтр и пагинация для заказов
     @IsOptional()
     @IsEnum(Status)
     status?: Status

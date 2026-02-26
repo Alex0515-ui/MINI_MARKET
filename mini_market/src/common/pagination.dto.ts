@@ -1,6 +1,6 @@
 import { IsNumber, IsOptional, IsPositive, Min } from "class-validator";
 
-export class PaginationDTO {
+export class PaginationDTO { // ДТО пагинации
     @IsOptional()
     @IsPositive()
     @IsNumber()
@@ -12,7 +12,7 @@ export class PaginationDTO {
     offset: number;
 }
 
-export class ValueFilterDTO extends PaginationDTO {
+export class ValueFilterDTO extends PaginationDTO { // Базовый фильтр по численным значениям
     @IsOptional()
     @IsPositive()
     @IsNumber()

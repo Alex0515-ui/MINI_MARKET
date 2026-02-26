@@ -2,8 +2,8 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./products.entity";
 import { Repository } from "typeorm";
-import { CreateProductDTO, ProductFilterDTO, UpdateProductDTO } from "./products.dto";
-import { PaginationDTO } from "src/common/pagination.dto";
+import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
+import { ValueFilterDTO } from "src/common/pagination.dto";
 import { UserRole } from "src/users/users.entity";
 
 
@@ -44,34 +44,39 @@ export class ProductService {
     }
 
     // Получение всех продуктов
-    async get_all_products(dto: PaginationDTO) {
-        const {limit = 10, offset = 0} = dto // Пагинация
-        const [data, total] = await this.repo.findAndCount({
-            take: limit,
-            skip: offset,
-            order: {id: 'DESC'}
-        })
-        return {
-            products: data,
-            count: total,
-            nextPage: total > limit + offset ? limit + offset : null
+    async get_all_products(dto: ValueFilterDTO) {
+        const {limit = 10, offset = 0, minValue, maxValue} = dto
+
+        const products_query = this.repo.createQueryBuilder('prod')
+
+        if (minValue) {
+            products_query.andWhere('prod.price >= :minValue', {minValue})
         }
+        if (maxValue) {
+            products_query.andWhere('prod.price <= :maxValue', {maxValue})
+        }
+
+        products_query.take(limit).skip(offset).orderBy('prod.id', 'DESC')
+
+        return products_query.getMany()
     }
 
-    // Получение админом продукта (Для проверки на складе)
+    // Получение продавцом продукта (Для проверки на складе)
     async get_product_by_seller(id: number, admin_id: number, role: UserRole) {
         const product = await this.repo.findOne({where: {id}, select: ["id", "title", "description", "image", "price", "count"]})
+
         if (!product) {
             throw new NotFoundException("Такого продукта нету")
         }
         if (product.creator.id != admin_id && role !== UserRole.ADMIN) {
-            throw new ForbiddenException("Нельзя посмотреть товар другого админа!")
+            throw new ForbiddenException("Нельзя посмотреть товар другого продавца!")
         }
+        
         return product
     }
 
     // Получение продавцом продуктов с фильтрацией и пагинацией (Для проверки на складе и отчетов)
-    async get_products_by_seller(seller_id: number, dto: ProductFilterDTO) {
+    async get_products_by_seller(seller_id: number, dto: ValueFilterDTO) {
         const { limit = 10, offset = 0, minValue, maxValue } = dto
         
         const product_query = this.repo.createQueryBuilder('prod')

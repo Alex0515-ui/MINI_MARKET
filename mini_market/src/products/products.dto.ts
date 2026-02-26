@@ -28,5 +28,3 @@ export class CreateProductDTO { // Тип создания продукта
 // Тип редактирования продукта
 export class UpdateProductDTO extends PartialType(CreateProductDTO) {}
 
-// Фильтр по ценам
-export class ProductFilterDTO extends ValueFilterDTO {} 

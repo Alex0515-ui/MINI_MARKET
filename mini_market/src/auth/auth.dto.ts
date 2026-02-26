@@ -28,7 +28,7 @@ export const AdminAuth = () => applyDecorators( // Укорачиваем дек
     Roles([UserRole.ADMIN])   
 );
 
-export const SellerAuth = () => applyDecorators(
+export const SellerAuth = () => applyDecorators( // Декоратор для продавца
     UseGuards(JwtGuard, RoleGuard),
     Roles([UserRole.SELLER, UserRole.ADMIN])
 )

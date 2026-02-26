@@ -14,18 +14,18 @@ export class PaymentController {
     ) {}
 
     @Patch('fill')
-    @UseGuards(JwtGuard)
+    @UseGuards(JwtGuard)                                // Пополнение кошелька
     fill_wallet(@Body() dto: WalletDTO, @Req() req) {
         return this.wallet_service.fill_wallet(req.user.id, dto.amount)
     }
 
     @Patch("withdraw")
-    @UseGuards(JwtGuard)
+    @UseGuards(JwtGuard)                                // Снятие с кошелька
     withdraw_wallet(@Body() dto: WalletDTO, @Req() req) {
         return this.wallet_service.withdrawal(req.user.id, dto.amount)
     }
 
-    @Get("my")
+    @Get("my")                                          // Проверка баланса кошелька
     @UseInterceptors(ExcludeNullInterceptor)
     @UseInterceptors(DataInterceptor)
     @UseGuards(JwtGuard)
@@ -33,7 +33,7 @@ export class PaymentController {
         return this.user_service.check_wallet_balance(req.user.id)
     }
 
-    @Get(':id/find')
+    @Get(':id/find')                                    // Получение кошелька админом
     @UseInterceptors(ExcludeNullInterceptor)
     @UseInterceptors(DataInterceptor)
     @AdminAuth()
@@ -41,16 +41,35 @@ export class PaymentController {
         return this.wallet_service.get_user_wallet(id)
     }
 
-    @Get('transactions')
+    @Get('transactions')                                // Получение всех своих транзакций
     @UseInterceptors(DataInterceptor)
     @UseGuards(JwtGuard)
     get_transactions(@Req() req, @Query() dto: TransactionFilterDTO) {
-        return this.wallet_service.get_all_transactions(req.user.id, dto)
+        return this.wallet_service.get_my_transactions(req.user.id, dto)
     }
 
-    @Get('seller/stats')
+    @Get('transactions/all')                            // Получение всех транзакций на платформе админом
+    @UseInterceptors(DataInterceptor)
+    @AdminAuth()
+    get_all_transactions(@Query() dto: TransactionFilterDTO) {
+        return this.wallet_service.get_all_transactions(dto)
+    }
+
+    @Get('seller/stats')                                // Получение статистики продавца
     @SellerAuth()
     get_stats(@Req() req) {
         return this.wallet_service.get_seller_stats(req.user.id)
+    }
+
+    @Get('admin')
+    @AdminAuth()                                        // Получение кошелька, куда идет комиссия
+    get_admin_wallet() {
+        return this.wallet_service.get_wallet_admin()
+    }
+
+    @Get('transactions/admin')
+    @AdminAuth()                                        // Получение комиссионных транзакций
+    get_admin_transactions(@Query() dto: TransactionFilterDTO) {
+        return this.wallet_service.get_transactions_admin(dto)
     }
 }

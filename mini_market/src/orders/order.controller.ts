@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, UseInterceptors } from "@nestjs/common";
 import { JwtGuard } from "src/common/guards.guard";
-import { AdminAuth, SellerAuth } from "src/auth/auth.dto";
+import { AdminAuth } from "src/auth/auth.dto";
 import { OrderService } from "./order.service";
 import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
