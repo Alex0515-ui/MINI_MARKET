@@ -39,7 +39,7 @@ export class OrderService {
                 if (item.quantity > product.count) {
                     throw new BadRequestException(`Не хватает товаров на складе`)
                 }
-                if (product.creator.id == userId) {
+                if (product.creator.id === userId) {
                     throw new BadRequestException("Нельзя купить товары у себя!")
                 }
 
@@ -183,10 +183,10 @@ export class OrderService {
             if (!order) {
                 throw new BadRequestException(`Заказ №${orderId} не существует`);
             }
-            if (order.status == Status.COMPLETED) {
+            if (order.status === Status.COMPLETED) {
                 throw new BadRequestException(`Заказ №${orderId} уже завершен!`);
             }
-            if (order.status != Status.SHIPPED) {
+            if (order.status !== Status.SHIPPED) {
                 throw new BadRequestException(`Нельзя завершить заказ без оплаты и отправки!`)
             }
 
@@ -212,10 +212,10 @@ export class OrderService {
             if (!order) {
                 throw new BadRequestException(`Заказ №${orderId} не найден`);
             }
-            if (order.status == Status.CANCELLED) {
+            if (order.status === Status.CANCELLED) {
                 throw new BadRequestException("Заказ уже отменен!");
             }
-            if (order.status == Status.COMPLETED) {
+            if (order.status === Status.COMPLETED) {
                 throw new BadRequestException("Завершенный заказ невозможно отменить");
             }
 
@@ -238,7 +238,7 @@ export class OrderService {
                     product.count += item.quantity;
                     await manager.save(product);
                 
-                    if (order.status == Status.SHIPPED) {
+                    if (order.status === Status.SHIPPED) {
                         const seller = await manager.findOne(User, { // Поиск продавца
                             where: {id: product.creator.id}, 
                             relations: ['wallet']
@@ -256,7 +256,7 @@ export class OrderService {
                         const transaction1 = manager.create(Transaction, { // Создание транзакции
                             wallet: seller.wallet, 
                             amount: item_price, 
-                            type: TRANSACTION_TYPE.WITHDRAWAL
+                            type: TRANSACTION_TYPE.RETURN
                         })
 
                         await manager.save(transaction1)
@@ -280,13 +280,13 @@ export class OrderService {
             const transaction2 = manager.create(Transaction, { // Создание транзакции
                 wallet: admin.wallet, 
                 amount: COMMISSION, 
-                type: TRANSACTION_TYPE.WITHDRAWAL
+                type: TRANSACTION_TYPE.RETURN
             })
 
             const transaction3 = manager.create(Transaction, { // Создание транзакции
                 wallet: user.wallet, 
                 amount: Number(order.amount), 
-                type: TRANSACTION_TYPE.REFILLING
+                type: TRANSACTION_TYPE.RETURN
             })
 
             await manager.save(transaction2)
@@ -305,7 +305,7 @@ export class OrderService {
         if (!order) {
             throw new BadRequestException(`Заказ №${orderId} не существует!`)
         }
-        if (order.user_id != userId) {
+        if (order.user_id !== userId) {
             throw new BadRequestException("Нельзя отменить чужой заказ!")
         }
         if (order.status !== Status.PENDING) {

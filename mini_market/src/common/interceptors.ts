@@ -16,7 +16,7 @@ export class DataInterceptor<T> implements NestInterceptor<T, Data<T>> {
 export class ExcludeNullInterceptor implements NestInterceptor {
     intercept(context: ExecutionContext, next: CallHandler<any>): Observable<any> | Promise<Observable<any>> {
         return next.handle().pipe(map(value => {
-            if (value == null) {
+            if (value === null) {
                 throw new NotFoundException("Данные не найдены")
             }
             return value

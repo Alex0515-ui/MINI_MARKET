@@ -84,6 +84,16 @@ export class WalletService {
             await queryRunner.release();
         }
     }
+    // Проверка кошелька
+    async check_wallet_balance(user_id: number) {
+        const wallet = await this.wallet_rep.findOne({where: {user: {id: user_id}}})
+        if (!wallet) {
+            throw new NotFoundException("Кошелек не найден!")
+        }
+        return {
+            balance: wallet.balance
+        };
+    }
 
     // Проверка собственного кошелька
     async get_user_wallet(id: number) {
@@ -159,11 +169,11 @@ export class WalletService {
         orders.forEach(order => { // Счет товаров и дохода
             order.items.forEach(item => {
                 const item_total = item.purchase_price * item.quantity
-                if (order.status == Status.CANCELLED) {
+                if (order.status === Status.CANCELLED) {
                     returned_earnings += item_total
                     returned_products += item.quantity
                 }
-                if (order.status == Status.SHIPPED || Status.COMPLETED) {
+                if (order.status === Status.SHIPPED || order.status === Status.COMPLETED) {
                     Total_earnings += item_total
                     Product_sold += item.quantity
                     products.push({id: item.product.id, count: item.quantity})

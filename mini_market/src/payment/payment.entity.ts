@@ -4,6 +4,7 @@ import { User } from "../users/users.entity";
 export enum TRANSACTION_TYPE { // Виды транзакции
     REFILLING = "Пополнение",
     PAYMENT = "Оплата",
+    RETURN = "Возврат",
     WITHDRAWAL = "Вывод"
 }
 

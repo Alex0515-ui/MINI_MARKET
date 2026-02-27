@@ -32,7 +32,7 @@ export class ProductService {
         if (!product) {
             throw new NotFoundException("Продукта с таким ID нету!")
         }
-        if (product.creator == null) throw new BadRequestException("У товара нету создателя")
+        if (product.creator === null) throw new BadRequestException("У товара нету создателя")
             
         return {
             id: product.id,
@@ -68,10 +68,10 @@ export class ProductService {
         if (!product) {
             throw new NotFoundException("Такого продукта нету")
         }
-        if (product.creator.id != admin_id && role !== UserRole.ADMIN) {
+        if (product.creator.id !== admin_id && role !== UserRole.ADMIN) {
             throw new ForbiddenException("Нельзя посмотреть товар другого продавца!")
         }
-        
+
         return product
     }
 

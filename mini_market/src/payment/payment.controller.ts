@@ -10,7 +10,6 @@ import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors
 export class PaymentController {
     
     constructor (private readonly wallet_service: WalletService,
-        private user_service: UserService
     ) {}
 
     @Patch('fill')
@@ -30,7 +29,7 @@ export class PaymentController {
     @UseInterceptors(DataInterceptor)
     @UseGuards(JwtGuard)
     check_wallet(@Req() req) {
-        return this.user_service.check_wallet_balance(req.user.id)
+        return this.wallet_service.check_wallet_balance(req.user.id)
     }
 
     @Get(':id/find')                                    // Получение кошелька админом

@@ -1,19 +1,20 @@
 import { forwardRef, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UserService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { comparePasswords } from 'src/common/password.fn';
 
 @Injectable()
 export class AuthService {
 
     constructor(
-                @Inject(forwardRef(() => UserService))
-                private readonly user_service: UserService,
-                private readonly jwt_service: JwtService
+        @Inject(forwardRef(() => UserService))
+        private readonly user_service: UserService,
+        private readonly jwt_service: JwtService
     ) {}
 
     async login(name:string, password: string): Promise<any> {
         const user = await this.user_service.getUserByName(name)
-        const passwords_match = await this.user_service.comparePasswords(password, user.password)
+        const passwords_match = await comparePasswords(password, user.password)
         
         if (!passwords_match) {
             throw new UnauthorizedException("Неверный пароль!")

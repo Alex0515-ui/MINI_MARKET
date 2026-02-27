@@ -9,7 +9,7 @@ import { Order } from "src/orders/order.entity";
 @Module({
     imports: [TypeOrmModule.forFeature([Wallet, Transaction, Order]), 
     
-    forwardRef(() => UsersModule),
+    forwardRef(() => UsersModule), 
     ],
     controllers: [PaymentController],
     providers: [WalletService],

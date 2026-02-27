@@ -3,9 +3,9 @@ import { CreateUserDTO } from "./users.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User, UserRole } from "./users.entity";
 import { Repository } from "typeorm";
-import * as bcrypt from 'bcrypt'
 import { AuthService } from "src/auth/auth.service";
 import { Wallet } from "src/payment/payment.entity";
+import { hashPassword } from "src/common/password.fn";
 
 @Injectable()
 export class UserService {
@@ -19,21 +19,10 @@ export class UserService {
 
     ) {}
 
-    // Хэширование пароля
-    async hashPassword(password: string) { 
-        const salt = 10
-        return await bcrypt.hash(password, salt)
-    }
-
-    // Сравнение паролей
-    async comparePasswords(password: string, hash: string): Promise<boolean> { 
-        return await bcrypt.compare(password, hash)
-    }
-
     // Создание пользователя (регистрация)
     async createUser(dto:CreateUserDTO): Promise<User> { 
         const user_exists = await this.repo.findOne({where: {name:dto.name}});
-        const hashed_password = await this.hashPassword(dto.password);
+        const hashed_password = await hashPassword(dto.password)
 
         if (user_exists) {
             throw new ConflictException('Пользователь с таким именем уже существует!')
@@ -81,15 +70,5 @@ export class UserService {
         return {"message": "Пользователь был успешно удален!"}
     }
 
-    // Проверка кошелька
-    async check_wallet_balance(user_id: number) {
-        const wallet = await this.wallet.findOne({where: {user: {id: user_id}}})
-        if (!wallet) {
-            throw new NotFoundException("Кошелек не найден!")
-        }
-        return {
-            balance: wallet.balance
-        };
-    }
 }
 
