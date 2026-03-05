@@ -1,6 +1,5 @@
 import { IsInt, IsNotEmpty, IsNumber, IsString } from "class-validator";
 import { PartialType } from "@nestjs/mapped-types";
-import { ValueFilterDTO } from "src/common/pagination.dto";
 
 export class CreateProductDTO { // Тип создания продукта
 

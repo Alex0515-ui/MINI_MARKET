@@ -2,7 +2,6 @@ import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, Req, UseGuard
 import { WalletService } from "./payment.service";
 import { JwtGuard } from "src/common/guards.guard";
 import { TransactionFilterDTO, WalletDTO } from "./payment.dto";
-import { UserService } from "src/users/users.service";
 import { AdminAuth, SellerAuth } from "src/auth/auth.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
 

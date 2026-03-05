@@ -1,11 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "src/products/products.entity";
 import { LessThan, Repository } from "typeorm";
 import { DataSource } from "typeorm";
 import { Order, OrderItem, Status } from "./order.entity";
 import { CreateOrderDTO, OrderFilterDTO } from "./order.dto";
-import { Transaction, TRANSACTION_TYPE, Wallet } from "src/payment/payment.entity";
+import { Transaction, TRANSACTION_TYPE, } from "src/payment/payment.entity";
 import { User } from "src/users/users.entity";
 import { Cron, CronExpression } from "@nestjs/schedule";
 
@@ -13,7 +13,6 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 export class OrderService {
 
     constructor(
-        @InjectRepository(Wallet) private wallet: Repository<Wallet>,
         @InjectRepository(Order) private order: Repository<Order>,
         private dataSource: DataSource, // Для гибкого управления транзакцией
     ) {}
@@ -34,13 +33,13 @@ export class OrderService {
                 }) // Поиск продукта
 
                 if (!product) {
-                    throw new BadRequestException(`Товар №${item.product_id} отсутствует`)
-                }
-                if (item.quantity > product.count) {
-                    throw new BadRequestException(`Не хватает товаров на складе`)
+                    throw new NotFoundException(`Товар №${item.product_id} отсутствует`)
                 }
                 if (product.creator.id === userId) {
                     throw new BadRequestException("Нельзя купить товары у себя!")
+                }
+                if (item.quantity > product.count) {
+                    throw new ConflictException(`Не хватает товаров на складе`)
                 }
 
                 const item_price = item.quantity * Number(product.price)
@@ -64,27 +63,12 @@ export class OrderService {
                 amount: total_amount.toString(),
                 items: orderItems, 
                 status: Status.PENDING})
-            
+           
             return await manager.save(newOrder)
             
         })
         
-        return {
-            id: saved_order.id,
-            items: saved_order.items.map(item => ({
-                quantity: item.quantity,
-                product: {
-                    id: item.product.id,
-                    title: item.product.title,
-                    description: item.product.description,
-                    image: item.product.image,
-                    price: item.product.price
-                }
-            })),
-            amount: saved_order.amount,
-            status: saved_order.status,
-            time: saved_order.created_at
-        }
+        return saved_order
     }
 
     // Функция для подтверждения оплаты заказа
@@ -97,10 +81,10 @@ export class OrderService {
             }); 
             
             if (!order) {
-                throw new BadRequestException(`Заказ №${orderId} не найден`)
+                throw new NotFoundException(`Заказ №${orderId} не найден`)
             }
             if (order.user_id !== userId) {
-                throw new BadRequestException("Нельзя оформить чужой заказ!")
+                throw new ConflictException("Нельзя оформить чужой заказ!")
             }
             if (order.status !== Status.PENDING) {
                 throw new BadRequestException("Заказ уже обработан")
@@ -109,11 +93,12 @@ export class OrderService {
             let COMMISSION = 0 // Комиссия платформы
 
             const user = await manager.findOne(User, {where: { id: order.user_id }, relations: ['wallet']});            
-            if (!user) throw new BadRequestException("Клиент не найден")
+            if (!user) throw new NotFoundException("Клиент не найден")
 
             let total_amount = Number(order.amount)
             
             if (user.wallet.balance < total_amount) throw new BadRequestException("Недостаточно средств")
+
             user.wallet.balance -= total_amount // Списание с кошелька
 
             await manager.save(Transaction, { // 1 Транзакция
@@ -126,15 +111,14 @@ export class OrderService {
             for (let item of order.items) {
                 const product = item.product
                 const creator_id = product.creator.id
-                if (!product) throw new BadRequestException("Товар не найден")
+                if (!product) throw new NotFoundException("Товар не найден")
 
                 const seller = await manager.findOne(User, {where: {id: creator_id}}) // Поиск продавца
 
-                if (!seller) throw new BadRequestException("Продавец не найден")
-                if (!seller.wallet) throw new BadRequestException("Кошелек продавца не найден")
-                if (!product) throw new BadRequestException("Товар не найден")
+                if (!seller) throw new NotFoundException("Продавец не найден")
+                if (!seller.wallet) throw new NotFoundException("Кошелек продавца не найден")
 
-                const item_price = item.quantity * Number(product.price) // Начисление админу
+                const item_price = item.quantity * Number(item.purchase_price) // Начисление админу
                 const admin_earn = (item_price/100) * 95
                 seller.wallet.balance += admin_earn
 
@@ -154,8 +138,8 @@ export class OrderService {
                     where: {id: 1},
                     relations: ['wallet']
             })
-            if(!admin) throw new BadRequestException("Админ не найден")
-            if (!admin.wallet) throw new BadRequestException("Кошелек админа не найден")
+            if(!admin) throw new NotFoundException("Админ не найден")
+            if (!admin.wallet) throw new NotFoundException("Кошелек админа не найден")
 
             admin.wallet.balance += COMMISSION
 
@@ -201,102 +185,98 @@ export class OrderService {
 
     // Функция для отмены заказа
     async cancelOrder(orderId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+       
+        const order = await manager.findOne(Order, { // Ищем заказ
+            where: { id: orderId },
+            relations: ['items', 'items.product', 'items.product.creator'] 
+        });
 
-        return await this.dataSource.transaction(async (manager) => {
-            
-            const order = await manager.findOne(Order, {
-                where: {id: orderId}, 
-                relations: ['items', 'items.product', ] // Для получения всех деталей заказа
-            }) 
+        if (!order) throw new NotFoundException(`Заказ №${orderId} не найден`);
+        if (order.status === Status.CANCELLED) throw new BadRequestException("Заказ уже отменен!");
+        if (order.status === Status.COMPLETED) throw new BadRequestException("Завершенный заказ невозможно отменить");
 
-            if (!order) {
-                throw new BadRequestException(`Заказ №${orderId} не найден`);
+        // Возврат товаров на склад
+        for (const item of order.items) {
+            if (item.product) {
+                item.product.count += item.quantity;
+                await manager.save(item.product);
             }
-            if (order.status === Status.CANCELLED) {
-                throw new BadRequestException("Заказ уже отменен!");
-            }
-            if (order.status === Status.COMPLETED) {
-                throw new BadRequestException("Завершенный заказ невозможно отменить");
-            }
+        }
 
-            let COMMISSION = 0 // Комиссия платформы
+        // Возвраты и расчеты если товар отправлен уже
+        if (order.status === Status.SHIPPED) {
+            let COMISSION = 0;
 
-            for (const item of order.items) { // Возврат товаров на склад
-                const item_product = item.product
-
-                if (!item_product) {
-                    console.log(`Продукта "${item_product}" нету в базе!`)
-                    continue
-                }
-
-                const product = await manager.findOne(Product, { // Поиск продукта
-                    where: {id: item_product.id}, 
-                    relations: ['creator']
-                })
-
-                if(product) {
-                    product.count += item.quantity;
-                    await manager.save(product);
+            // Списание с продавцов
+            for (const item of order.items) {
+                const seller = await manager.findOne(User, {
+                    where: { id: item.product.creator.id },
+                    relations: ['wallet']
+                });
+                if (!seller) throw new NotFoundException("Продавец не найден")
+                if (!seller.wallet) throw new NotFoundException("Кошелек продавца не найден")
                 
-                    if (order.status === Status.SHIPPED) {
-                        const seller = await manager.findOne(User, { // Поиск продавца
-                            where: {id: product.creator.id}, 
-                            relations: ['wallet']
-                        })
+                const itemPrice = item.purchase_price * item.quantity;
+                const sellerReceived = (itemPrice / 100) * 95; // То что продавец получил 95%
+                const commissionPart = itemPrice - sellerReceived; // Те 5%, что ушли админу
 
-                        if (!seller) throw new BadRequestException("Продавец не найден!")
+                seller.wallet.balance = Number(seller.wallet.balance) - sellerReceived;
+                COMISSION += commissionPart;
 
-                        const item_price = item.purchase_price * item.quantity
-                        const seller_return = (item_price/100) * 95 
-                        seller.wallet.balance -= seller_return // Снимаем с продавца админа стоимость товара
-
-                        const commission_earn = item_price - seller_return // Добавление в комиссию
-                        COMMISSION += commission_earn
-
-                        const transaction1 = manager.create(Transaction, { // Создание транзакции
-                            wallet: seller.wallet, 
-                            amount: item_price, 
-                            type: TRANSACTION_TYPE.RETURN
-                        })
-
-                        await manager.save(transaction1)
-                        await manager.save(seller.wallet)
-                        await manager.save(seller)
-                            
-                    }
-                }
+                await manager.save(seller.wallet);
+                
+                await manager.save(manager.create(Transaction, { // Транзакция продавца
+                    wallet: seller.wallet,
+                    amount: sellerReceived,
+                    type: TRANSACTION_TYPE.RETURN
+                }));
+                
             }
-            const user = await manager.findOne(User, {where: {id: order.user_id}, relations: ['wallet']}) 
-            if (!user) throw new BadRequestException("Клиент не найден")
-            user.wallet.balance += Number(order.amount)
-            await manager.save(user.wallet) // Возврат средств пользователю
 
-            const admin = await manager.findOne(User, {where: {id: 1}, relations: ['wallet']}) // Списание с админа
+            // Списание комиссии с админа
+            const admin = await manager.findOne(User, { 
+                where: { id: 1 }, 
+                relations: ['wallet'] 
+            });
             if (!admin) throw new NotFoundException("Админ не найден")
             if (!admin.wallet) throw new NotFoundException("Кошелек админа не найден")
-            admin.wallet.balance -= COMMISSION
 
-            await manager.save(admin.wallet)
-            const transaction2 = manager.create(Transaction, { // Создание транзакции
-                wallet: admin.wallet, 
-                amount: COMMISSION, 
+            admin.wallet.balance = Number(admin.wallet.balance) - COMISSION;
+            await manager.save(admin.wallet);
+
+            await manager.save(manager.create(Transaction, { // Транзакция админа
+                wallet: admin.wallet,
+                amount: COMISSION,
                 type: TRANSACTION_TYPE.RETURN
-            })
+            }));
+            // Возврат средств клиенту
+            const user = await manager.findOne(User, { 
+                where: { id: order.user_id }, 
+                relations: ['wallet'] 
+            });
 
-            const transaction3 = manager.create(Transaction, { // Создание транзакции
-                wallet: user.wallet, 
-                amount: Number(order.amount), 
+            if (!user) throw new NotFoundException("Клиент не найден");
+            if (!user.wallet) throw new NotFoundException("Кошелек клиента не найден")
+
+            const orderAmount = Number(order.amount);
+            user.wallet.balance = Number(user.wallet.balance) + orderAmount;
+            await manager.save(user.wallet);
+
+            await manager.save(manager.create(Transaction, { // Транзакция клиенту
+                wallet: user.wallet,
+                amount: orderAmount,
                 type: TRANSACTION_TYPE.RETURN
-            })
+            }));
+        }
 
-            await manager.save(transaction2)
-            await manager.save(transaction3)
-            await manager.save(order);
+        order.status = Status.CANCELLED; // Меняем статус
+        await manager.save(order);    
 
-            order.status = Status.CANCELLED; // Изменение статуса
-            return {"message": `Заказ №${orderId} был успешно отменен, товары возвращены на склад!`};
-        })
-    }
+        return {"message": `Заказ №${orderId} был успешно отменен!`};
+    });
+}
+
 
     // Удаление заказа пользователем
     async userCancelOrder(orderId: number, userId: number) {

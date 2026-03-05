@@ -12,15 +12,14 @@ export class UserService {
 
     constructor(
         @InjectRepository(User)
-        @Inject(forwardRef(() => AuthService))
         private readonly repo: Repository<User>, // Обращения будущие к таблице Users в БД
         @InjectRepository(Wallet)
-        private readonly wallet: Repository<Wallet>
+        private readonly wallet: Repository<Wallet>,
 
     ) {}
 
     // Создание пользователя (регистрация)
-    async createUser(dto:CreateUserDTO): Promise<User> { 
+    async createUser(dto:CreateUserDTO) { 
         const user_exists = await this.repo.findOne({where: {name:dto.name}});
         const hashed_password = await hashPassword(dto.password)
 
@@ -35,7 +34,12 @@ export class UserService {
         const saved = await this.repo.save(user);
         await this.wallet.save(wallet)
 
-        return saved
+        return {
+            id: saved.id,
+            name: saved.name,
+            role: saved.role,
+            wallet_id: wallet.id
+        }
     }
 
     // Получение пользователя

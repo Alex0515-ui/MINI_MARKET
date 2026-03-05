@@ -14,14 +14,14 @@ export class ProductService {
     private readonly repo: Repository<Product>) {}
 
     // Создание продукта
-    async create_product(dto: CreateProductDTO, admin_id: number): Promise<Product> {
+    async create_product(dto: CreateProductDTO, seller_id: number): Promise<Product> {
         const product_exists = await this.repo.findOne({where: {title: dto.title}})
 
         if (product_exists) {
             throw new ConflictException("Продукт с таким названием уже существует! Попробуйте изменить название")
         }
 
-        const product = this.repo.create({...dto, creator: {id: admin_id}})
+        const product = this.repo.create({...dto, creator: {id: seller_id}})
         const saved = await this.repo.save(product)
         return saved
     }
@@ -109,6 +109,7 @@ export class ProductService {
             throw new ForbiddenException("Нельзя изменить чужой товар!")
         }   
 
+        
         Object.assign(product, dto);
         return await this.repo.save(product);
     }

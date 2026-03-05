@@ -167,6 +167,7 @@ export class WalletService {
         let products : product_stat[] = []
 
         orders.forEach(order => { // Счет товаров и дохода
+
             order.items.forEach(item => {
                 const item_total = item.purchase_price * item.quantity
                 if (order.status === Status.CANCELLED) {
@@ -181,9 +182,9 @@ export class WalletService {
             })
         })
     
-        const best_product = products.reduce((prev, current) => { // Самый продаваемый продукт
-            return (prev.count > current.count) ? prev : current
-        })
+        const best_product = products.length > 0 ? // Самый продаваемый продукт
+        products.reduce((prev, current) => (prev.count > current.count) ? prev : current)
+        : null
 
         return {
             "Доход" : Total_earnings,

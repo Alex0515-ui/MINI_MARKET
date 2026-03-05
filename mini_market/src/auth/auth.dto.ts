@@ -1,6 +1,6 @@
 import { applyDecorators, UseGuards } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { IsNotEmpty, IsString, MinLength } from "class-validator";
+import { IsNotEmpty, IsString } from "class-validator";
 import { UserRole } from "src/users/users.entity";
 import { JwtGuard, RoleGuard } from "../common/guards.guard";
 
