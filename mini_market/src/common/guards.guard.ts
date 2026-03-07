@@ -20,8 +20,6 @@ export class RoleGuard implements CanActivate { // Guard для авториза
         const user = request.user;
         if (!user) return false;
 
-        console.log('User role from JWT:', user.role);
-        console.log('Role required by decorator:', roles);
         return roles.includes(user.role)
     }
     

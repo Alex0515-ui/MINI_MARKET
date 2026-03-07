@@ -1,9 +1,8 @@
-import { ConflictException, forwardRef, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { CreateUserDTO } from "./users.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User, UserRole } from "./users.entity";
 import { Repository } from "typeorm";
-import { AuthService } from "src/auth/auth.service";
 import { Wallet } from "src/payment/payment.entity";
 import { hashPassword } from "src/common/password.fn";
 

@@ -110,6 +110,7 @@ describe('OrderService', () => {
         .rejects.toThrow(BadRequestException)
         expect(mockTransaction.manager.create).not.toHaveBeenCalled();
     })
+    
     it('Должно вывести ошибку если товаров на складе не хватает', async () => {
         const product11 = {id: 11, creator: {id: 1}, count: 5, price: 1000}
         const product8 = {id: 8, creator: {id: 5}, count: 10, price: 1500}
@@ -251,6 +252,7 @@ describe('OrderService', () => {
     await expect(service.confirmOrder(order_id, user_id)).rejects.toThrow(NotFoundException)
     expect(mockTransaction.manager.save).not.toHaveBeenCalled();
     })
+
     it('Должна выйти ошибка если недостаточно средств', async () => {
        
         const user = {id: user_id, name: "user1", role: UserRole.USER, wallet: {id: 4, balance: 100}}
@@ -437,10 +439,12 @@ describe('OrderService', () => {
         expect(seller2.wallet.balance).toEqual(20000)
         expect(admin.wallet.balance).toEqual(100000)
     })
+
     it('Должно вывести ошибку если заказ не найден', async () => {
         mockTransaction.manager.findOne.mockResolvedValue(null)
         await expect(service.cancelOrder(1)).rejects.toThrow(NotFoundException)
     })
+
     it('Должно вывести ошибку если заказ уже отменен', async () => {
         const order = {id: order_id, user_id: user_id, amount: 3500, items: [
             {
@@ -462,6 +466,7 @@ describe('OrderService', () => {
         await expect(service.cancelOrder(order_id)).rejects.toThrow(BadRequestException)
 
     })
+
     it('Должно вывести ошибку если заказ уже завершен', async () => {
         const order = {id: order_id, user_id: user_id, amount: 3500, items: [
             {
@@ -482,6 +487,7 @@ describe('OrderService', () => {
         mockTransaction.manager.findOne.mockResolvedValue(order)
         await expect(service.cancelOrder(order_id)).rejects.toThrow(BadRequestException)
     })
+
     it('Должно вывести ошибку если пользователь не найден', async () => {
         const user = {id: user_id, name: "user1", role: UserRole.USER, wallet: {id: 4, balance: 10000}}
         const seller1 = {id: seller_id1, wallet: {id: 2, balance: 15000}}
@@ -524,6 +530,7 @@ describe('OrderService', () => {
         expect(seller2.wallet.balance).toEqual(20000)
         expect(admin.wallet.balance).toEqual(100000)
     })
+
     it('Должно вывести ошибку если продавец не найден', async () => {
         const user = {id: user_id, name: "user1", role: UserRole.USER, wallet: {id: 4, balance: 10000}}
         const seller1 = {id: seller_id1, wallet: {id: 2, balance: 15000}}
@@ -553,6 +560,7 @@ describe('OrderService', () => {
         expect(user.wallet.balance).toEqual(10000)
         expect(seller1.wallet.balance).toEqual(15000)
     })
+
     it('Должно вывести ошибку если админ не найден', async () => {
         const user = {id: user_id, name: "user1", role: UserRole.USER, wallet: {id: 4, balance: 10000}}
         const seller1 = {id: seller_id1, wallet: {id: 2, balance: 15000}}
