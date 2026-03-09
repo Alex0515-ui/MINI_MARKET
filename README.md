@@ -77,7 +77,7 @@ API will be available at `http://localhost:3000`.
 Make sure no other process (like Docker) is using port 3000 if running locally.
 
 
-## 🧪 Testing
+##  Testing
 
 * Unit tests:
 

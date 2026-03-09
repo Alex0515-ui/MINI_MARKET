@@ -3,7 +3,7 @@ import { ProductService } from "./products.service";
 import { CreateProductDTO, UpdateProductDTO } from "./products.dto";
 import { AdminAuth, SellerAuth} from "src/auth/auth.dto";
 import { DataInterceptor, ExcludeNullInterceptor } from "src/common/interceptors";
-import { PaginationDTO, ValueFilterDTO } from "src/common/pagination.dto";
+import { ValueFilterDTO } from "src/common/pagination.dto";
 
 @Controller('products')
 export class ProductController {
