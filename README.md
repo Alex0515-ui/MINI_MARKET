@@ -100,6 +100,9 @@ npm run test:e2e
 
 ---
 
+## Swagger
+Available on "http://localhost:3000/api/docs"
+
 ## Tips
 
 * For security, do not store real passwords in `.env.example`.
